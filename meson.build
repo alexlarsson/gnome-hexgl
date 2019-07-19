@@ -1,0 +1,15 @@
+project('gnome-hexgl', 'c',
+        version: '0.0.1',
+        default_options: [
+          'buildtype=debugoptimized',
+          'warning_level=1',
+          'c_std=gnu99',
+        ],
+        meson_version : '>= 0.48.0')
+
+gthree = dependency('gthree-1.0')
+
+cc = meson.get_compiler('c')
+libm = cc.find_library('m', required : false)
+
+executable('gnome-hexgl', ['src/hexgl.c', 'src/camerachase.c'], dependencies: [gthree, libm])
