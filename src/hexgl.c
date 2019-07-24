@@ -5,8 +5,11 @@
 #include <gthree/gthree.h>
 #include "camerachase.h"
 
+
 GthreeObject *the_ship;
 CameraChase *camera_chase;
+cairo_surface_t *depth_map;
+cairo_surface_t *collision_map;
 
 static void
 resize_area (GthreeArea *area,
@@ -156,6 +159,125 @@ tick (GtkWidget     *widget,
   return G_SOURCE_CONTINUE;
 }
 
+static void
+enable_layer_cb (GthreeObject                *object,
+                 gpointer                     user_data)
+{
+  guint layer = GPOINTER_TO_UINT (user_data);
+  gthree_object_enable_layer (object, layer);
+}
+
+static void
+add_name_to_layer (GthreeObject *top,
+                   const char *name,
+                   guint layer)
+{
+  g_autoptr(GList) objects;
+  GList *l;
+
+  objects = gthree_object_find_by_name (top, name);
+  for (l = objects; l != NULL; l = l->next)
+    {
+      GthreeObject *obj = l->data;
+      gthree_object_traverse (GTHREE_OBJECT (obj), enable_layer_cb, GUINT_TO_POINTER(layer));
+    }
+}
+
+static gboolean
+render_area (GtkGLArea    *gl_area,
+             GdkGLContext *context)
+{
+  GthreeRenderer *renderer = gthree_area_get_renderer (GTHREE_AREA(gl_area));
+  GthreeScene *scene = gthree_area_get_scene (GTHREE_AREA(gl_area));
+
+  if (depth_map == NULL)
+    {
+    graphene_box_t bounding_box;
+    graphene_point3d_t min, max;
+    graphene_point3d_t pos;
+    graphene_euler_t e;
+    GthreeOrthographicCamera *o_camera;
+    g_autoptr(GthreeRenderTarget) render_target = NULL;
+    g_autoptr(GthreeMeshDepthMaterial) depth_material = NULL;
+    g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
+    GdkRGBA white   = {1, 1, 1, 1};
+    GdkRGBA red   = {1, 0, 0, 1};
+
+    gthree_object_update_matrix_world (GTHREE_OBJECT (scene), FALSE);
+    gthree_object_get_mesh_extents (GTHREE_OBJECT (scene), &bounding_box);
+
+    graphene_box_get_min (&bounding_box, &min);
+    graphene_box_get_max (&bounding_box, &max);
+
+    o_camera = gthree_orthographic_camera_new (min.x, max.x,
+                                               max.z, min.z,
+                                               0, max.y - min.y);
+    gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (o_camera));
+
+    gthree_object_set_position (GTHREE_OBJECT (o_camera),
+                                graphene_point3d_init (&pos, 0, min.y, 0));
+    gthree_object_set_rotation (GTHREE_OBJECT (o_camera),
+                                graphene_euler_init (&e, 90, 0, 0));
+
+    depth_material = gthree_mesh_depth_material_new ();
+    gthree_mesh_depth_material_set_depth_packing_format (depth_material,
+                                                         GTHREE_DEPTH_PACKING_FORMAT_RGBA);
+
+    render_target = gthree_render_target_new (2048, 2048);
+    gthree_render_target_set_stencil_buffer (render_target, FALSE);
+
+    gthree_scene_set_override_material (scene, GTHREE_MATERIAL (depth_material));
+    gthree_renderer_set_render_target (renderer, render_target, 0, 0);
+
+    add_name_to_layer (GTHREE_OBJECT (scene), "tracks", 2);
+    add_name_to_layer (GTHREE_OBJECT (scene), "bonus-base", 3);
+
+    gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
+    gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
+
+    depth_map = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                            gthree_render_target_get_width (render_target),
+                                            gthree_render_target_get_height (render_target));
+    gthree_render_target_download (render_target,
+                                   cairo_image_surface_get_data (depth_map),
+                                   cairo_image_surface_get_stride (depth_map));
+
+    //cairo_surface_write_to_png (depth_map, "analysis-height.png");
+
+    track_material = gthree_mesh_basic_material_new ();
+
+    gthree_scene_set_override_material (scene, GTHREE_MATERIAL (track_material));
+
+    gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
+    gthree_mesh_basic_material_set_color (track_material, &white);
+    gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
+
+    gthree_renderer_clear_depth (renderer); // TODO: Why is this needed, do we look the wrong way?
+    gthree_renderer_set_autoclear (renderer, FALSE);
+
+    gthree_object_set_layer (GTHREE_OBJECT (o_camera), 3);
+    gthree_mesh_basic_material_set_color (track_material, &red);
+    gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
+
+    collision_map = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                                gthree_render_target_get_width (render_target),
+                                                gthree_render_target_get_height (render_target));
+    gthree_render_target_download (render_target,
+                                   cairo_image_surface_get_data (collision_map),
+                                   cairo_image_surface_get_stride (collision_map));
+
+    //cairo_surface_write_to_png (collision_map, "analysis-collision.png");
+
+    gthree_renderer_set_autoclear (renderer, TRUE);
+    gthree_renderer_set_render_target (renderer, NULL, 0, 0);
+    gthree_scene_set_override_material (scene, NULL);
+  }
+
+  gthree_renderer_render (renderer, scene,
+                          gthree_area_get_camera (GTHREE_AREA(gl_area)));
+  return TRUE;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -182,16 +304,12 @@ main (int argc, char *argv[])
   gtk_widget_show (hbox);
 
   scene = gthree_scene_new ();
-
-  init_scene (scene);
-
   camera = gthree_perspective_camera_new (70, 1, 1, 6000);
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (camera));
 
-  camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
-
   area = gthree_area_new (scene, GTHREE_CAMERA (camera));
   g_signal_connect (area, "resize", G_CALLBACK (resize_area), camera);
+  g_signal_connect (area, "render", G_CALLBACK (render_area), NULL);
   gtk_widget_set_hexpand (area, TRUE);
   gtk_widget_set_vexpand (area, TRUE);
   gtk_container_add (GTK_CONTAINER (hbox), area);
@@ -204,6 +322,9 @@ main (int argc, char *argv[])
   gtk_container_add (GTK_CONTAINER (box), button);
   g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window);
   gtk_widget_show (button);
+
+  init_scene (scene);
+  camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
 
   gtk_widget_show (window);
 
