@@ -139,15 +139,18 @@ tick (GtkWidget     *widget,
   static gint64 last_frame_time_i = 0;
   float delta_time_sec = 0;
   gint64 frame_time_i;
+  float dt;
 
   frame_time_i = gdk_frame_clock_get_frame_time (frame_clock);
   if (last_frame_time_i != 0)
     delta_time_sec = (frame_time_i - last_frame_time_i) / (float) G_USEC_PER_SEC;
   last_frame_time_i = frame_time_i;
 
-  ship_controls_update (ship_controls, delta_time_sec);
+  dt = delta_time_sec * 1000.0 / 16.6;
 
-  camera_chase_update (camera_chase, delta_time_sec, 1.0 /* This should be ShipControls.getSpeedRatio */);
+  ship_controls_update (ship_controls, dt);
+
+  camera_chase_update (camera_chase, dt, ship_controls_get_speed_ratio (ship_controls));
 
   gtk_widget_queue_draw (widget);
 
