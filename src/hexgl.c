@@ -4,10 +4,11 @@
 #include <epoxy/gl.h>
 #include <gthree/gthree.h>
 #include "camerachase.h"
-
+#include "shipcontrols.h"
 
 GthreeObject *the_ship;
 CameraChase *camera_chase;
+ShipControls *ship_controls;
 cairo_surface_t *depth_map;
 cairo_surface_t *collision_map;
 
@@ -138,19 +139,13 @@ tick (GtkWidget     *widget,
   static gint64 last_frame_time_i = 0;
   float delta_time_sec = 0;
   gint64 frame_time_i;
-  graphene_point3d_t pos;
-  const graphene_vec3_t *current_pos = gthree_object_get_position (GTHREE_OBJECT (the_ship));
 
   frame_time_i = gdk_frame_clock_get_frame_time (frame_clock);
   if (last_frame_time_i != 0)
     delta_time_sec = (frame_time_i - last_frame_time_i) / (float) G_USEC_PER_SEC;
   last_frame_time_i = frame_time_i;
 
-  gthree_object_set_position (GTHREE_OBJECT (the_ship),
-                              graphene_point3d_init (&pos,
-                                                     graphene_vec3_get_x (current_pos),
-                                                     graphene_vec3_get_y (current_pos),
-                                                     graphene_vec3_get_z (current_pos) + 1));
+  ship_controls_update (ship_controls, delta_time_sec);
 
   camera_chase_update (camera_chase, delta_time_sec, 1.0 /* This should be ShipControls.getSpeedRatio */);
 
@@ -278,6 +273,20 @@ render_area (GtkGLArea    *gl_area,
   return TRUE;
 }
 
+static gboolean
+key_press (GtkWidget	     *widget,
+           GdkEventKey	     *event)
+{
+  return ship_controls_key_press (ship_controls, event);
+}
+
+static gboolean
+key_release (GtkWidget	     *widget,
+             GdkEventKey	     *event)
+{
+  return ship_controls_key_release (ship_controls, event);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -310,12 +319,15 @@ main (int argc, char *argv[])
   area = gthree_area_new (scene, GTHREE_CAMERA (camera));
   g_signal_connect (area, "resize", G_CALLBACK (resize_area), camera);
   g_signal_connect (area, "render", G_CALLBACK (render_area), NULL);
+  gtk_widget_grab_focus (area);
   gtk_widget_set_hexpand (area, TRUE);
   gtk_widget_set_vexpand (area, TRUE);
   gtk_container_add (GTK_CONTAINER (hbox), area);
   gtk_widget_show (area);
 
   gtk_widget_add_tick_callback (GTK_WIDGET (area), tick, area, NULL);
+  g_signal_connect (window, "key-press-event", G_CALLBACK (key_press), NULL);
+  g_signal_connect (window, "key-release-event", G_CALLBACK (key_release), NULL);
 
   button = gtk_button_new_with_label ("Quit");
   gtk_widget_set_hexpand (button, TRUE);
@@ -323,8 +335,13 @@ main (int argc, char *argv[])
   g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window);
   gtk_widget_show (button);
 
+
+  ship_controls = ship_controls_new ();
+
   init_scene (scene);
   camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
+
+  ship_controls_control (ship_controls, the_ship);
 
   gtk_widget_show (window);
 

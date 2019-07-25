@@ -12,4 +12,4 @@ gthree = dependency('gthree-1.0')
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 
-executable('gnome-hexgl', ['src/hexgl.c', 'src/camerachase.c'], dependencies: [gthree, libm])
+executable('gnome-hexgl', ['src/hexgl.c', 'src/camerachase.c', 'src/shipcontrols.c'], dependencies: [gthree, libm])
