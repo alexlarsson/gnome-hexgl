@@ -5,6 +5,7 @@
 struct _ShipControls {
   GthreeObject *mesh;
   GthreeObject *dummy;
+  AnalysisMap *height_map;
 
   gboolean active;
   gboolean destroyed;
@@ -32,6 +33,12 @@ struct _ShipControls {
   float angularLerp;
   float rollAngle;
   float rollLerp;
+  float heightLerp;
+  float heightOffset; // height above track
+  float gradientLerp;
+  float gradientScale;
+  float tiltLerp;
+  float tiltScale;
 
   /* motion state */
   float drift;
@@ -40,6 +47,10 @@ struct _ShipControls {
   float speedRatio;
   float roll;
   graphene_vec3_t repulsionForce;
+  float gradient;
+  float gradientTarget;
+  float tilt;
+  float tiltTarget;
 
   gboolean key_forward;
   gboolean key_backward;
@@ -79,6 +90,12 @@ ship_controls_new (void)
   controls->angularLerp = 0.35;
   controls->rollAngle = 0.6;
   controls->rollLerp = 0.08;
+  controls->heightLerp = 0.4;
+  controls->heightOffset = 4;
+  controls->gradientLerp = 0.05;
+  controls->gradientScale = 4.0;
+  controls->tiltLerp = 0.05;
+  controls->tiltScale = 4.0;
 
   controls->drift = 0.0;
   controls->angular = 0.0;
@@ -86,6 +103,10 @@ ship_controls_new (void)
   controls->speedRatio = 0.0;
   controls->roll = 0.0;
   graphene_vec3_init (&controls->repulsionForce, 0, 0, 0);
+  controls->gradient = 0.0;
+  controls->gradientTarget = 0.0;
+  controls->tilt = 0.0;
+  controls->tiltTarget = 0.0;
 
   controls->dummy = gthree_object_new ();
   return controls;
@@ -109,6 +130,12 @@ ship_controls_control (ShipControls *controls,
                                    gthree_object_get_position (mesh));
 }
 
+void
+ship_controls_set_height_map (ShipControls *controls,
+                              AnalysisMap *map)
+{
+  controls->height_map = analysis_map_ref (map);
+}
 
 void
 ship_controls_free (ShipControls *controls)
@@ -141,6 +168,78 @@ multiply_quaternions (const graphene_quaternion_t *a,
 }
 
 #define RAD_TO_DEG(x)          ((x) * (180.f / GRAPHENE_PI))
+
+
+static void
+ship_controls_height_check (ShipControls *controls,
+                            graphene_point3d_t *movement,
+                            float dt)
+{
+  graphene_point3d_t pos;
+
+  if (controls->height_map == NULL)
+    return;
+
+  graphene_point3d_init_from_vec3 (&pos,
+                                   gthree_object_get_position (controls->dummy));
+
+  float height = analysis_map_lookup_depthmapped (controls->height_map, pos.x, pos.z);
+
+  float delta = (height + controls->heightOffset - pos.y);
+
+  if (delta > 0)
+    movement->y += delta;
+  else
+    movement->y += delta * controls->heightLerp;
+
+  // gradient
+  graphene_vec3_t gradientVector;
+  graphene_vec3_init (&gradientVector, 0, 0, 5);
+
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (controls->dummy),
+                                  &gradientVector, &gradientVector);
+  graphene_vec3_add (&gradientVector,
+                     gthree_object_get_position (controls->dummy),
+                     &gradientVector);
+
+  float nheight = analysis_map_lookup_depthmapped (controls->height_map,
+                                                   graphene_vec3_get_x (&gradientVector),
+                                                   graphene_vec3_get_z (&gradientVector));
+  if (fabs (nheight - height) < 100)
+      controls->gradientTarget = -atan2f (nheight - height, 5.0); //TODO: original had this???: * controls->gradientScale;
+
+  // tilt
+  graphene_vec3_t tiltVector;
+  graphene_vec3_init (&tiltVector, 5, 0, 0);
+
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (controls->dummy),
+                                  &tiltVector, &tiltVector);
+  graphene_vec3_add (&tiltVector,
+                     gthree_object_get_position (controls->dummy),
+                     &tiltVector);
+
+  nheight = analysis_map_lookup_depthmapped (controls->height_map,
+                                             graphene_vec3_get_x (&tiltVector),
+                                             graphene_vec3_get_z (&tiltVector));
+
+  if (fabs (nheight - height) > 100) // If right project out of bounds, try left projection
+    {
+      graphene_vec3_init (&tiltVector, -5, 0, 0);
+      graphene_matrix_transform_vec3 (gthree_object_get_matrix (controls->dummy),
+                                      &tiltVector, &tiltVector);
+      graphene_vec3_add (&tiltVector,
+                         gthree_object_get_position (controls->dummy),
+                         &tiltVector);
+
+      nheight = analysis_map_lookup_depthmapped (controls->height_map,
+                                                 graphene_vec3_get_x (&tiltVector),
+                                                 graphene_vec3_get_z (&tiltVector));
+      // flip tilt???
+    }
+
+  if (fabs (nheight - height) < 100)
+    controls->tiltTarget = atan2f (nheight - height, 5.0); // *controls->tiltScale;
+}
 
 
 void
@@ -256,19 +355,16 @@ ship_controls_update (ShipControls *controls,
 
   //controls->boosterCheck(dt);
 
-  g_print ("movement %f, %f, %f\n", movement.x, movement.y, movement.z);
-
   gthree_object_translate_x (controls->dummy, movement.x);
   gthree_object_translate_z (controls->dummy, movement.z);
 
-  //controls->heightCheck(dt);
-  gthree_object_translate_z (controls->dummy, movement.y);
+  ship_controls_height_check (controls, &movement, dt);
+  gthree_object_translate_y (controls->dummy, movement.y);
 
   //controls->currentVelocity.copy(controls->dummy.position).subSelf(controls->collisionPreviousPosition);
 
   //controls->collisionCheck(dt);
 
-  g_print ("rotation: %f %f %f\n", rotation.x, rotation.y, rotation.z);
   graphene_quaternion_init_from_euler (&quaternion,
                                        graphene_euler_init_from_radians (&euler, rotation.x, -rotation.y, rotation.z, GRAPHENE_EULER_ORDER_DEFAULT));
   //graphene_quaternion_normalize (&quaternion, &quaternion);
@@ -292,28 +388,23 @@ ship_controls_update (ShipControls *controls,
 
       graphene_matrix_init_identity (&matrix);
 
-      /*
       // Gradient (Mesh only, no dummy physics impact)
-      var gradientDelta = (controls->gradientTarget - (controls->gradient)) * controls->gradientLerp;
+      float gradientDelta = (controls->gradientTarget - (controls->gradient)) * controls->gradientLerp;
+
       if (fabs (gradientDelta) > EPSILON)
         controls->gradient += gradientDelta;
+
       if (fabs(controls->gradient) > EPSILON)
-        {
-          controls->gradientAxis.set(1,0,0);
-          controls->mesh.matrix.rotateByAxis(controls->gradientAxis, controls->gradient);
-        }
+        graphene_matrix_rotate_x (&matrix, RAD_TO_DEG (controls->gradient));
 
       // Tilting (Idem)
-      var tiltDelta = (controls->tiltTarget - controls->tilt) * controls->tiltLerp;
-      if (fabs(tiltDelta) > EPSILON)
-        controls->tilt += tiltDelta;
-      if (fabs(controls->tilt) > EPSILON)
-        {
-          controls->tiltAxis.set(0,0,1);
-          controls->mesh.matrix.rotateByAxis(controls->tiltAxis, controls->tilt);
-        }
+      float tiltDelta = (controls->tiltTarget - controls->tilt) * controls->tiltLerp;
 
-      */
+      if (fabs (tiltDelta) > EPSILON)
+        controls->tilt += tiltDelta;
+
+      if (fabs (controls->tilt) > EPSILON)
+        graphene_matrix_rotate_z (&matrix, RAD_TO_DEG (controls->tilt));
 
       // Rolling (Idem)
       float rollDelta = (rollAmount - controls->roll) * controls->rollLerp;

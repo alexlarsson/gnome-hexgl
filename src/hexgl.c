@@ -5,11 +5,12 @@
 #include <gthree/gthree.h>
 #include "camerachase.h"
 #include "shipcontrols.h"
+#include "analysismap.h"
 
 GthreeObject *the_ship;
 CameraChase *camera_chase;
 ShipControls *ship_controls;
-cairo_surface_t *depth_map;
+AnalysisMap *height_map;
 cairo_surface_t *collision_map;
 
 static void
@@ -188,7 +189,7 @@ render_area (GtkGLArea    *gl_area,
   GthreeRenderer *renderer = gthree_area_get_renderer (GTHREE_AREA(gl_area));
   GthreeScene *scene = gthree_area_get_scene (GTHREE_AREA(gl_area));
 
-  if (depth_map == NULL)
+  if (height_map == NULL)
     {
     graphene_box_t bounding_box;
     graphene_point3d_t min, max;
@@ -198,6 +199,7 @@ render_area (GtkGLArea    *gl_area,
     g_autoptr(GthreeRenderTarget) render_target = NULL;
     g_autoptr(GthreeMeshDepthMaterial) depth_material = NULL;
     g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
+    cairo_surface_t *surface;
     GdkRGBA white   = {1, 1, 1, 1};
     GdkRGBA red   = {1, 0, 0, 1};
 
@@ -208,18 +210,25 @@ render_area (GtkGLArea    *gl_area,
     graphene_box_get_max (&bounding_box, &max);
 
     o_camera = gthree_orthographic_camera_new (min.x, max.x,
-                                               max.z, min.z,
+                                               -min.z, -max.z,
                                                0, max.y - min.y);
     gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (o_camera));
 
     gthree_object_set_position (GTHREE_OBJECT (o_camera),
-                                graphene_point3d_init (&pos, 0, min.y, 0));
+                                graphene_point3d_init (&pos, 0, max.y, 0));
     gthree_object_set_rotation (GTHREE_OBJECT (o_camera),
-                                graphene_euler_init (&e, 90, 0, 0));
+                                graphene_euler_init (&e, -90, 0, 0));
 
     depth_material = gthree_mesh_depth_material_new ();
     gthree_mesh_depth_material_set_depth_packing_format (depth_material,
                                                          GTHREE_DEPTH_PACKING_FORMAT_RGBA);
+    gthree_material_set_blend_mode (GTHREE_MATERIAL (depth_material),
+                                    GTHREE_BLEND_NO,
+                                    GL_FUNC_ADD,
+                                    GL_SRC_ALPHA,
+                                    GL_ONE_MINUS_SRC_ALPHA);
+
+    gthree_renderer_set_clear_color (renderer, &white);
 
     render_target = gthree_render_target_new (2048, 2048);
     gthree_render_target_set_stencil_buffer (render_target, FALSE);
@@ -233,14 +242,18 @@ render_area (GtkGLArea    *gl_area,
     gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
     gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
 
-    depth_map = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-                                            gthree_render_target_get_width (render_target),
-                                            gthree_render_target_get_height (render_target));
+    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                          gthree_render_target_get_width (render_target),
+                                          gthree_render_target_get_height (render_target));
     gthree_render_target_download (render_target,
-                                   cairo_image_surface_get_data (depth_map),
-                                   cairo_image_surface_get_stride (depth_map));
+                                   cairo_image_surface_get_data (surface),
+                                   cairo_image_surface_get_stride (surface));
 
-    //cairo_surface_write_to_png (depth_map, "analysis-height.png");
+    //cairo_surface_write_to_png (surface, "analysis-height.png");
+
+    height_map = analysis_map_new (surface, &bounding_box);
+    ship_controls_set_height_map (ship_controls, height_map);
+    cairo_surface_destroy (surface);
 
     track_material = gthree_mesh_basic_material_new ();
 
@@ -250,7 +263,6 @@ render_area (GtkGLArea    *gl_area,
     gthree_mesh_basic_material_set_color (track_material, &white);
     gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
 
-    gthree_renderer_clear_depth (renderer); // TODO: Why is this needed, do we look the wrong way?
     gthree_renderer_set_autoclear (renderer, FALSE);
 
     gthree_object_set_layer (GTHREE_OBJECT (o_camera), 3);
