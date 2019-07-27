@@ -134,9 +134,53 @@ analysis_map_lookup_depthmapped (AnalysisMap *map,
 }
 
 void
-analysis_map_lookup_rgba (AnalysisMap *map,
-                          float x,
-                          float y,
-                          GdkRGBA *color)
+analysis_map_lookup_rgba_nearest (AnalysisMap *map,
+                                  float x,
+                                  float z,
+                                  GdkRGBA *color)
 {
+  x = cairo_image_surface_get_width (map->surface) * (x - map->min.x) / (map->max.x - map->min.x);
+  z = cairo_image_surface_get_height (map->surface) * (map->max.z - z) / (map->max.z - map->min.z);
+
+  /* y flip */
+  z = cairo_image_surface_get_height (map->surface) - z;
+
+  analysis_map_lookup_pixel (map, floor (x + 0.5), floor (z + 0.5), color);
+}
+
+static void
+lerp_color (const GdkRGBA *a, const GdkRGBA *b, float alpha, GdkRGBA *dest)
+{
+  dest->red = lerp (a->red, b->red, alpha);
+  dest->green = lerp (a->green, b->green, alpha);
+  dest->blue = lerp (a->blue, b->blue, alpha);
+  dest->alpha = lerp (a->alpha, b->alpha, alpha);
+}
+
+void
+analysis_map_lookup_rgba_bilinear (AnalysisMap *map,
+                                   float x,
+                                   float z,
+                                   GdkRGBA *color)
+{
+  GdkRGBA sum1, sum2;
+  GdkRGBA c1, c2;
+
+  x = cairo_image_surface_get_width (map->surface) * (x - map->min.x) / (map->max.x - map->min.x);
+  z = cairo_image_surface_get_height (map->surface) * (map->max.z - z) / (map->max.z - map->min.z);
+
+  /* y flip */
+  z = cairo_image_surface_get_height (map->surface) - z;
+
+
+  /* Bilinear */
+  analysis_map_lookup_pixel (map, floor (x), floor (z), &c1);
+  analysis_map_lookup_pixel (map, ceil (x), floor (z), &c2);
+  lerp_color (&c1, &c2, (ceil (x) - x), &sum1);
+
+  analysis_map_lookup_pixel (map, floor (x), ceil (z), &c1);
+  analysis_map_lookup_pixel (map, ceil (x), ceil (z), &c2);
+  lerp_color (&c1, &c2, (ceil (x) - x), &sum2);
+
+  lerp_color (&sum1, &sum2, (ceil (z) - z), color);
 }

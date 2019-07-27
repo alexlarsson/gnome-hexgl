@@ -6,6 +6,7 @@ struct _ShipControls {
   GthreeObject *mesh;
   GthreeObject *dummy;
   AnalysisMap *height_map;
+  AnalysisMap *collision_map;
 
   gboolean active;
   gboolean destroyed;
@@ -39,6 +40,7 @@ struct _ShipControls {
   float gradientScale;
   float tiltLerp;
   float tiltScale;
+  float repulsionVScale;
 
   /* motion state */
   float drift;
@@ -46,11 +48,15 @@ struct _ShipControls {
   float speed;
   float speedRatio;
   float roll;
-  graphene_vec3_t repulsionForce;
+  graphene_point3d_t repulsionForce;
   float gradient;
   float gradientTarget;
   float tilt;
   float tiltTarget;
+
+  gboolean collision_left;
+  gboolean collision_right;
+  gboolean collision_front;
 
   gboolean key_forward;
   gboolean key_backward;
@@ -96,13 +102,14 @@ ship_controls_new (void)
   controls->gradientScale = 4.0;
   controls->tiltLerp = 0.05;
   controls->tiltScale = 4.0;
+  controls->repulsionVScale = 4.0;
 
   controls->drift = 0.0;
   controls->angular = 0.0;
   controls->speed = 0.0;
   controls->speedRatio = 0.0;
   controls->roll = 0.0;
-  graphene_vec3_init (&controls->repulsionForce, 0, 0, 0);
+  graphene_point3d_init (&controls->repulsionForce, 0, 0, 0);
   controls->gradient = 0.0;
   controls->gradientTarget = 0.0;
   controls->tilt = 0.0;
@@ -135,6 +142,13 @@ ship_controls_set_height_map (ShipControls *controls,
                               AnalysisMap *map)
 {
   controls->height_map = analysis_map_ref (map);
+}
+
+void
+ship_controls_set_collision_map (ShipControls *controls,
+                                 AnalysisMap *map)
+{
+  controls->collision_map = analysis_map_ref (map);
 }
 
 void
@@ -175,11 +189,10 @@ ship_controls_height_check (ShipControls *controls,
                             graphene_point3d_t *movement,
                             float dt)
 {
-  graphene_point3d_t pos;
-
   if (controls->height_map == NULL)
     return;
 
+  graphene_point3d_t pos;
   graphene_point3d_init_from_vec3 (&pos,
                                    gthree_object_get_position (controls->dummy));
 
@@ -234,13 +247,132 @@ ship_controls_height_check (ShipControls *controls,
       nheight = analysis_map_lookup_depthmapped (controls->height_map,
                                                  graphene_vec3_get_x (&tiltVector),
                                                  graphene_vec3_get_z (&tiltVector));
-      // flip tilt???
+      // TODO: Shouldn't we flip tilt angle here ????
     }
 
   if (fabs (nheight - height) < 100)
     controls->tiltTarget = atan2f (nheight - height, 5.0); // *controls->tiltScale;
 }
 
+static void
+ship_controls_collision_check (ShipControls *controls,
+                               float dt)
+{
+  if (controls->collision_map == NULL)
+    return;
+
+  /*
+  if (controls->shieldDelay > 0)
+    controls->shieldDelay -= dt;
+  */
+
+  controls->collision_left = false;
+  controls->collision_right = false;
+  controls->collision_front = false;
+
+
+  graphene_point3d_t pos;
+  graphene_point3d_init_from_vec3 (&pos,
+                                   gthree_object_get_position (controls->dummy));
+
+
+  GdkRGBA collision;
+  analysis_map_lookup_rgba_bilinear (controls->collision_map, pos.x, pos.z, &collision);
+
+  if (collision.red < 1.0)
+    {
+      //bkcore.Audio.play('crash');
+
+#if 0
+      // Shield
+      var sr = (controls->getRealSpeed() / controls->maxSpeed);
+      controls->shield -= sr * sr * 0.8 * controls->shieldDamage;
+#endif
+
+      // Repulsion
+      graphene_vec3_t repulsionVLeft;
+      graphene_vec3_init (&repulsionVLeft, 1, 0, 0);
+      graphene_matrix_transform_vec3 (gthree_object_get_matrix (controls->dummy),
+                                      &repulsionVLeft, &repulsionVLeft);
+      graphene_vec3_scale (&repulsionVLeft, controls->repulsionVScale, &repulsionVLeft);
+
+      graphene_vec3_t repulsionVRight;
+      graphene_vec3_init (&repulsionVRight, -1, 0, 0);
+      graphene_matrix_transform_vec3 (gthree_object_get_matrix (controls->dummy),
+                                      &repulsionVRight, &repulsionVRight);
+      graphene_vec3_scale (&repulsionVRight, controls->repulsionVScale, &repulsionVRight);
+
+      graphene_vec3_t lPos, rPos;
+      graphene_vec3_add (gthree_object_get_position (controls->dummy),
+                         &repulsionVLeft, &lPos);
+      graphene_vec3_add (gthree_object_get_position (controls->dummy),
+                         &repulsionVRight, &rPos);
+
+
+      GdkRGBA lCol, rCol;
+      analysis_map_lookup_rgba_bilinear (controls->collision_map, graphene_vec3_get_x (&lPos), graphene_vec3_get_z (&lPos), &lCol);
+      analysis_map_lookup_rgba_bilinear (controls->collision_map, graphene_vec3_get_x (&rPos), graphene_vec3_get_z (&rPos), &rCol);
+
+      float repulsionAmount = fmaxf (0.8,
+                                     fminf (controls->repulsionCap,
+                                            controls->speed * controls->repulsionRatio
+                                            )
+                                     );
+
+      if (rCol.red > lCol.red)
+        {
+          // Repulse right
+          controls->repulsionForce.x += -repulsionAmount;
+          controls->collision_left = TRUE;
+        }
+      else if (rCol.red < lCol.red)
+        {
+          // Repulse left
+          controls->repulsionForce.x += repulsionAmount;
+          controls->collision_right = TRUE;
+        }
+      else
+        {
+          //console.log(collision.r+"  --  "+fCol+"  @  "+lCol+"  /  "+rCol);
+          controls->repulsionForce.z += -repulsionAmount*4;
+          controls->collision_front = TRUE;
+          controls->speed = 0;
+        }
+
+#if 0
+      // DIRTY GAMEOVER
+      if (rCol < 128 && lCol < 128)
+        {
+          var fCol = controls->collisionMap.getPixel(Math.round(pos.x+2), Math.round(pos.z+2)).r;
+          if(fCol < 128)
+            {
+              console.log('GAMEOVER');
+              controls->fall();
+            }
+        }
+#endif
+
+      controls->speed *= controls->collisionSpeedDecrease;
+      controls->speed *= (1-controls->collisionSpeedDecreaseCoef * (1 - collision.red));
+#if 0
+      controls->boost = 0;
+#endif
+    }
+}
+
+static float
+lerp (float a, float b, float alpha)
+{
+  return a * alpha + b * (1.0-alpha);
+}
+
+static void
+lerp_point (const graphene_point3d_t *a, const graphene_point3d_t *b, float alpha, graphene_point3d_t *dest)
+{
+  dest->x = lerp (a->x, b->x, alpha);
+  dest->y = lerp (a->y, b->y, alpha);
+  dest->z = lerp (a->z, b->z, alpha);
+}
 
 void
 ship_controls_update (ShipControls *controls,
@@ -328,30 +460,23 @@ ship_controls_update (ShipControls *controls,
   controls->speedRatio = controls->speed / controls->maxSpeed;
   movement.z += controls->speed * dt;
 
-  if (graphene_vec3_near (&controls->repulsionForce, graphene_vec3_zero (), EPSILON))
-    graphene_vec3_init (&controls->repulsionForce, 0, 0, 0);
+  if (graphene_point3d_near (&controls->repulsionForce, graphene_point3d_zero (), EPSILON))
+    graphene_point3d_init (&controls->repulsionForce, 0, 0, 0);
   else
     {
-      graphene_vec3_t m, v;
+      if (controls->repulsionForce.z != 0.0)
+        movement.z = 0;
 
-      if (graphene_vec3_get_z (&controls->repulsionForce) != 0.0)
-        graphene_vec3_init (&controls->repulsionForce,
-                            graphene_vec3_get_x (&controls->repulsionForce),
-                            graphene_vec3_get_y (&controls->repulsionForce),
-                            0);
+      movement.x += controls->repulsionForce.x;
+      movement.y += controls->repulsionForce.y;
+      movement.z += controls->repulsionForce.z;
 
-      graphene_point3d_to_vec3 (&movement, &v);
-      graphene_vec3_add (&v, &controls->repulsionForce, &m);
-      graphene_point3d_init_from_vec3 (&movement, &m);
-
-      graphene_vec3_scale (&controls->repulsionForce,
-                           dt > 1.5 ? controls->repulsionLerp*2 : controls->repulsionLerp,
-                           &v),
-
-        graphene_vec3_subtract (&controls->repulsionForce, &v, &controls->repulsionForce);
+      lerp_point (&controls->repulsionForce, graphene_point3d_zero (),
+                  dt > 1.5 ? controls->repulsionLerp*2 : controls->repulsionLerp,
+                  &controls->repulsionForce);
     }
 
-  //controls->collisionPreviousPosition.copy(controls->dummy.position);
+  graphene_vec3_t collisionPreviousPosition = *gthree_object_get_position (controls->dummy);
 
   //controls->boosterCheck(dt);
 
@@ -361,9 +486,11 @@ ship_controls_update (ShipControls *controls,
   ship_controls_height_check (controls, &movement, dt);
   gthree_object_translate_y (controls->dummy, movement.y);
 
-  //controls->currentVelocity.copy(controls->dummy.position).subSelf(controls->collisionPreviousPosition);
+  graphene_vec3_t currentVelocity; // Used below for audio
+  graphene_vec3_subtract (gthree_object_get_position (controls->dummy), &collisionPreviousPosition,
+                          &currentVelocity);
 
-  //controls->collisionCheck(dt);
+  ship_controls_collision_check (controls, dt);
 
   graphene_quaternion_init_from_euler (&quaternion,
                                        graphene_euler_init_from_radians (&euler, rotation.x, -rotation.y, rotation.z, GRAPHENE_EULER_ORDER_DEFAULT));
@@ -424,8 +551,8 @@ ship_controls_update (ShipControls *controls,
     }
 
   //Update listener position
-  //bkcore.Audio.setListenerPos(controls->movement);
-  //bkcore.Audio.setListenerVelocity(controls->currentVelocity);
+  //bkcore.Audio.setListenerPos(&movement);
+  //bkcore.Audio.setListenerVelocity(&currentVelocity);
 
 }
 

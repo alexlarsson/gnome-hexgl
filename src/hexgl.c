@@ -11,7 +11,7 @@ GthreeObject *the_ship;
 CameraChase *camera_chase;
 ShipControls *ship_controls;
 AnalysisMap *height_map;
-cairo_surface_t *collision_map;
+AnalysisMap *collision_map;
 
 static void
 resize_area (GthreeArea *area,
@@ -201,6 +201,7 @@ render_area (GtkGLArea    *gl_area,
     g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
     cairo_surface_t *surface;
     GdkRGBA white   = {1, 1, 1, 1};
+    GdkRGBA black   = {0, 0, 0, 1};
     GdkRGBA red   = {1, 0, 0, 1};
 
     gthree_object_update_matrix_world (GTHREE_OBJECT (scene), FALSE);
@@ -259,6 +260,8 @@ render_area (GtkGLArea    *gl_area,
 
     gthree_scene_set_override_material (scene, GTHREE_MATERIAL (track_material));
 
+    gthree_renderer_set_clear_color (renderer, &black);
+
     gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
     gthree_mesh_basic_material_set_color (track_material, &white);
     gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
@@ -269,14 +272,18 @@ render_area (GtkGLArea    *gl_area,
     gthree_mesh_basic_material_set_color (track_material, &red);
     gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
 
-    collision_map = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-                                                gthree_render_target_get_width (render_target),
-                                                gthree_render_target_get_height (render_target));
+    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                          gthree_render_target_get_width (render_target),
+                                          gthree_render_target_get_height (render_target));
     gthree_render_target_download (render_target,
-                                   cairo_image_surface_get_data (collision_map),
-                                   cairo_image_surface_get_stride (collision_map));
+                                   cairo_image_surface_get_data (surface),
+                                   cairo_image_surface_get_stride (surface));
 
-    //cairo_surface_write_to_png (collision_map, "analysis-collision.png");
+    //cairo_surface_write_to_png (surface, "analysis-collision.png");
+
+    collision_map = analysis_map_new (surface, &bounding_box);
+    ship_controls_set_collision_map (ship_controls, collision_map);
+    cairo_surface_destroy (surface);
 
     gthree_renderer_set_autoclear (renderer, TRUE);
     gthree_renderer_set_render_target (renderer, NULL, 0, 0);

@@ -9,6 +9,8 @@ void ship_controls_control (ShipControls *controls,
                             GthreeObject *mesh);
 void ship_controls_set_height_map (ShipControls *controls,
                                    AnalysisMap *map);
+void ship_controls_set_collision_map (ShipControls *controls,
+                                      AnalysisMap *map);
 
 void ship_controls_free (ShipControls *controls);
 void ship_controls_update (ShipControls *controls,
