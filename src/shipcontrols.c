@@ -577,10 +577,14 @@ handle_key (ShipControls *controls,
       return TRUE;
     case GDK_KEY_A:
     case GDK_KEY_a:
+    case GDK_KEY_Q:
+    case GDK_KEY_q:
       controls->key_ltrigger = down;
       return TRUE;
-    case GDK_KEY_S:
-    case GDK_KEY_s:
+    case GDK_KEY_D:
+    case GDK_KEY_d:
+    case GDK_KEY_E:
+    case GDK_KEY_e:
       controls->key_rtrigger = down;
       return TRUE;
     }
