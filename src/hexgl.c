@@ -257,6 +257,8 @@ render_area (GtkGLArea    *gl_area,
     cairo_surface_destroy (surface);
 
     track_material = gthree_mesh_basic_material_new ();
+    // We use white vertex color to mark the ridable part of the track
+    gthree_material_set_vertex_colors (track_material, TRUE);
 
     gthree_scene_set_override_material (scene, GTHREE_MATERIAL (track_material));
 
@@ -269,6 +271,7 @@ render_area (GtkGLArea    *gl_area,
     gthree_renderer_set_autoclear (renderer, FALSE);
 
     gthree_object_set_layer (GTHREE_OBJECT (o_camera), 3);
+    gthree_material_set_vertex_colors (track_material, FALSE);
     gthree_mesh_basic_material_set_color (track_material, &red);
     gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
 
