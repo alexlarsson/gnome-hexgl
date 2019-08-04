@@ -103,7 +103,7 @@ init_scene (GthreeScene *scene)
   graphene_point3d_t pos;
 
   track = load_model ("tracks/cityscape/cityscape.glb");
-  ship = load_model ("ships/feisar/feisar.gltf");
+  ship = load_model ("ships/feisar/feisar.glb");
 
   skybox = load_skybox ("dawnclouds");
   gthree_scene_set_background_texture (scene, skybox);
