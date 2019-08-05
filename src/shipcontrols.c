@@ -517,7 +517,7 @@ ship_controls_update (ShipControls *controls,
       movement.y += controls->repulsionForce.y;
       movement.z += controls->repulsionForce.z;
 
-      lerp_point (&controls->repulsionForce, graphene_point3d_zero (),
+      lerp_point (graphene_point3d_zero (), &controls->repulsionForce,
                   dt > 1.5 ? controls->repulsionLerp*2 : controls->repulsionLerp,
                   &controls->repulsionForce);
     }
