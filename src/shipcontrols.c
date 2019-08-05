@@ -428,7 +428,6 @@ ship_controls_update (ShipControls *controls,
   graphene_point3d_t rotation = { 0, 0, 0 };
   graphene_point3d_t movement = { 0, 0, 0 };
   graphene_quaternion_t quaternion;
-  graphene_euler_t euler;
 
   if (controls->falling)
     {
@@ -539,9 +538,9 @@ ship_controls_update (ShipControls *controls,
 
   ship_controls_collision_check (controls, dt);
 
-  graphene_quaternion_init_from_euler (&quaternion,
-                                       graphene_euler_init_from_radians (&euler, rotation.x, -rotation.y, rotation.z, GRAPHENE_EULER_ORDER_DEFAULT));
-  //graphene_quaternion_normalize (&quaternion, &quaternion);
+  graphene_quaternion_init (&quaternion,
+                            rotation.x, rotation.y, rotation.z, 1);
+  graphene_quaternion_normalize (&quaternion, &quaternion);
   multiply_quaternions (&quaternion,
                         gthree_object_get_quaternion (controls->dummy),
                         &quaternion);
