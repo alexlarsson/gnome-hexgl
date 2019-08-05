@@ -88,7 +88,7 @@ camera_chase_update (CameraChase *chase,
       gthree_object_set_position (GTHREE_OBJECT (chase->camera),
                                   graphene_point3d_init (&pos,
                                                          graphene_vec3_get_x (&target),
-                                                         graphene_vec3_get_y (&target) - graphene_vec3_get_y (&up) + chase->y_offset,
+                                                         graphene_vec3_get_y (&target) - graphene_vec3_get_y (&up2) + chase->y_offset,
                                                          graphene_vec3_get_z (&target)));
 
       graphene_vec3_scale (&dir, chase->view_offset, &dir2);
