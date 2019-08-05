@@ -97,7 +97,7 @@ ship_controls_new (void)
   controls->rollAngle = 0.6;
   controls->rollLerp = 0.08;
   controls->heightLerp = 0.4;
-  controls->heightOffset = 4;
+  controls->heightOffset = 9;
   controls->gradientLerp = 0.05;
   controls->gradientScale = 4.0;
   controls->tiltLerp = 0.05;
