@@ -116,7 +116,54 @@ ship_controls_new (void)
   controls->tiltTarget = 0.0;
 
   controls->dummy = gthree_object_new ();
+
+  ship_controls_set_difficulty (controls, 0);
+
   return controls;
+}
+
+void
+ship_controls_set_difficulty (ShipControls *controls,
+                              int difficulty)
+{
+  if (difficulty == 1)
+    {
+      controls->airResist = 0.035;
+      controls->airDrift = 0.07;
+      controls->thrust = 0.035;
+      controls->airBrake = 0.04;
+      controls->maxSpeed = 9.6;
+      controls->boosterSpeed = controls->maxSpeed * 0.35;
+      controls->boosterDecay = 0.007;
+      controls->angularSpeed = 0.0140;
+      controls->airAngularSpeed = 0.0165;
+      controls->rollAngle = 0.6;
+      controls->shieldDamage = 0.03;
+      controls->collisionSpeedDecrease = 0.8;
+      controls->collisionSpeedDecreaseCoef = 0.5;
+      controls->rollLerp = 0.1;
+      controls->driftLerp = 0.4;
+      controls->angularLerp = 0.4;
+    }
+  else if (difficulty == 0)
+    {
+      controls->airResist = 0.02;
+      controls->airDrift = 0.06;
+      controls->thrust = 0.02;
+      controls->airBrake = 0.025;
+      controls->maxSpeed = 7.0;
+      controls->boosterSpeed = controls->maxSpeed * 0.5;
+      controls->boosterDecay = 0.007;
+      controls->angularSpeed = 0.0125;
+      controls->airAngularSpeed = 0.0135;
+      controls->rollAngle = 0.6;
+      controls->shieldDamage = 0.06;
+      controls->collisionSpeedDecrease = 0.8;
+      controls->collisionSpeedDecreaseCoef = 0.5;
+      controls->rollLerp = 0.07;
+      controls->driftLerp = 0.3;
+      controls->angularLerp = 0.4;
+    }
 }
 
 float

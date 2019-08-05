@@ -5,6 +5,9 @@ typedef struct _ShipControls ShipControls;
 
 ShipControls *ship_controls_new (void);
 
+void ship_controls_set_difficulty (ShipControls *controls,
+                                   int difficulty);
+
 void ship_controls_control (ShipControls *controls,
                             GthreeObject *mesh);
 void ship_controls_set_height_map (ShipControls *controls,
