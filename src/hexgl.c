@@ -182,6 +182,33 @@ add_name_to_layer (GthreeObject *top,
     }
 }
 
+static void
+disable_vertex_colors_cb (GthreeObject                *object,
+                          gpointer                     user_data)
+{
+  if (GTHREE_IS_MESH (object))
+    {
+      GthreeMaterial *material = gthree_mesh_get_material (GTHREE_MESH (object), 0);
+      gthree_material_set_vertex_colors (material, FALSE);
+    }
+}
+
+static void
+disable_vertex_colors (GthreeObject *top,
+                       const char *name)
+{
+  g_autoptr(GList) objects;
+  GList *l;
+
+  objects = gthree_object_find_by_name (top, name);
+  for (l = objects; l != NULL; l = l->next)
+    {
+      GthreeObject *obj = l->data;
+      gthree_object_traverse (GTHREE_OBJECT (obj), disable_vertex_colors_cb, NULL);
+    }
+}
+
+
 static gboolean
 render_area (GtkGLArea    *gl_area,
              GdkGLContext *context)
@@ -238,6 +265,8 @@ render_area (GtkGLArea    *gl_area,
     gthree_renderer_set_render_target (renderer, render_target, 0, 0);
 
     add_name_to_layer (GTHREE_OBJECT (scene), "tracks", 2);
+    // Don't use vertex colors for the tracks object, as its used for collision info
+    disable_vertex_colors (GTHREE_OBJECT (scene), "tracks");
     add_name_to_layer (GTHREE_OBJECT (scene), "bonus-base", 3);
 
     gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
