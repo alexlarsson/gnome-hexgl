@@ -12,6 +12,6 @@ gthree = dependency('gthree-1.0')
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 
-sources = ['src/hexgl.c', 'src/analysismap.c', 'src/camerachase.c', 'src/shipcontrols.c']
+sources = ['src/hexgl.c', 'src/analysismap.c', 'src/camerachase.c', 'src/shipcontrols.c', 'src/shipeffects.c']
 
 executable('gnome-hexgl', sources, dependencies: [gthree, libm])

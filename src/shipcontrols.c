@@ -47,6 +47,7 @@ struct _ShipControls {
   float angular;
   float speed;
   float speedRatio;
+  float boost;
   float roll;
   graphene_point3d_t repulsionForce;
   float gradient;
@@ -108,6 +109,7 @@ ship_controls_new (void)
   controls->angular = 0.0;
   controls->speed = 0.0;
   controls->speedRatio = 0.0;
+  controls->boost = 0.0;
   controls->roll = 0.0;
   graphene_point3d_init (&controls->repulsionForce, 0, 0, 0);
   controls->gradient = 0.0;
@@ -169,7 +171,26 @@ ship_controls_set_difficulty (ShipControls *controls,
 float
 ship_controls_get_speed_ratio (ShipControls *controls)
 {
-  return controls->speedRatio;
+  return (controls->speed + controls->boost) / controls->maxSpeed;
+}
+
+float
+ship_controls_get_boost_ratio (ShipControls *controls)
+{
+  return controls->boost / controls->boosterSpeed;
+}
+
+gboolean
+ship_controls_is_accelerating (ShipControls *controls)
+{
+  return controls->key_forward;
+}
+
+gboolean
+ship_controls_is_destroyed (ShipControls *controls)
+{
+  // TODO
+  return FALSE;
 }
 
 void
@@ -182,6 +203,12 @@ ship_controls_control (ShipControls *controls,
   gthree_object_set_matrix_auto_update (controls->mesh, FALSE);
   gthree_object_set_position_vec3 (controls->dummy,
                                    gthree_object_get_position (mesh));
+}
+
+GthreeObject *
+ship_controls_get_mesh (ShipControls *controls)
+{
+  return controls->mesh;
 }
 
 void

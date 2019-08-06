@@ -14,12 +14,16 @@ void ship_controls_set_height_map (ShipControls *controls,
                                    AnalysisMap *map);
 void ship_controls_set_collision_map (ShipControls *controls,
                                       AnalysisMap *map);
+GthreeObject *ship_controls_get_mesh (ShipControls *controls);
 
 void ship_controls_free (ShipControls *controls);
 void ship_controls_update (ShipControls *controls,
                            float dt);
 
 float ship_controls_get_speed_ratio (ShipControls *controls);
+float ship_controls_get_boost_ratio (ShipControls *controls);
+gboolean ship_controls_is_accelerating (ShipControls *controls);
+gboolean ship_controls_is_destroyed (ShipControls *controls);
 
 gboolean ship_controls_key_press (ShipControls *controls,
                                   GdkEventKey *event);

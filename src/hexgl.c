@@ -5,11 +5,13 @@
 #include <gthree/gthree.h>
 #include "camerachase.h"
 #include "shipcontrols.h"
+#include "shipeffects.h"
 #include "analysismap.h"
 
 GthreeObject *the_ship;
 CameraChase *camera_chase;
 ShipControls *ship_controls;
+ShipEffects *ship_effects;
 AnalysisMap *height_map;
 AnalysisMap *collision_map;
 
@@ -150,6 +152,7 @@ tick (GtkWidget     *widget,
   dt = delta_time_sec * 1000.0 / 16.6;
 
   ship_controls_update (ship_controls, dt);
+  ship_effects_update (ship_effects, dt);
 
   camera_chase_update (camera_chase, dt, ship_controls_get_speed_ratio (ship_controls));
 
@@ -158,12 +161,13 @@ tick (GtkWidget     *widget,
   return G_SOURCE_CONTINUE;
 }
 
-static void
+static gboolean
 enable_layer_cb (GthreeObject                *object,
                  gpointer                     user_data)
 {
   guint layer = GPOINTER_TO_UINT (user_data);
   gthree_object_enable_layer (object, layer);
+  return TRUE;
 }
 
 static void
@@ -182,7 +186,7 @@ add_name_to_layer (GthreeObject *top,
     }
 }
 
-static void
+static gboolean
 disable_vertex_colors_cb (GthreeObject                *object,
                           gpointer                     user_data)
 {
@@ -191,6 +195,7 @@ disable_vertex_colors_cb (GthreeObject                *object,
       GthreeMaterial *material = gthree_mesh_get_material (GTHREE_MESH (object), 0);
       gthree_material_set_vertex_colors (material, FALSE);
     }
+  return TRUE;
 }
 
 static void
@@ -287,7 +292,7 @@ render_area (GtkGLArea    *gl_area,
 
     track_material = gthree_mesh_basic_material_new ();
     // We use white vertex color to mark the ridable part of the track
-    gthree_material_set_vertex_colors (track_material, TRUE);
+    gthree_material_set_vertex_colors (GTHREE_MATERIAL (track_material), TRUE);
 
     gthree_scene_set_override_material (scene, GTHREE_MATERIAL (track_material));
 
@@ -300,7 +305,7 @@ render_area (GtkGLArea    *gl_area,
     gthree_renderer_set_autoclear (renderer, FALSE);
 
     gthree_object_set_layer (GTHREE_OBJECT (o_camera), 3);
-    gthree_material_set_vertex_colors (track_material, FALSE);
+    gthree_material_set_vertex_colors (GTHREE_MATERIAL (track_material), FALSE);
     gthree_mesh_basic_material_set_color (track_material, &red);
     gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
 
@@ -389,13 +394,14 @@ main (int argc, char *argv[])
   g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window);
   gtk_widget_show (button);
 
-
   ship_controls = ship_controls_new ();
 
   init_scene (scene);
   camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
 
   ship_controls_control (ship_controls, the_ship);
+  ship_effects = ship_effects_new (ship_controls);
+
 
   gtk_widget_show (window);
 
