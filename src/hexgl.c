@@ -116,7 +116,7 @@ init_scene (GthreeScene *scene)
   gthree_object_set_matrix_auto_update (GTHREE_OBJECT (ship), TRUE);
   the_ship = ship;
 
-  gthree_object_set_position (GTHREE_OBJECT (ship),
+  gthree_object_set_position_point3d (GTHREE_OBJECT (ship),
                               graphene_point3d_init (&pos,
                                                      -1134*2,
                                                      387,
@@ -126,7 +126,7 @@ init_scene (GthreeScene *scene)
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (ambient_light));
 
   sun = gthree_directional_light_new (&white, 1.5);
-  gthree_object_set_position (GTHREE_OBJECT (sun),
+  gthree_object_set_position_point3d (GTHREE_OBJECT (sun),
                               graphene_point3d_init (&pos,
                                                      -4000, 1200, 1800));
   gthree_object_look_at (GTHREE_OBJECT (sun),
@@ -247,7 +247,7 @@ render_area (GtkGLArea    *gl_area,
                                                0, max.y - min.y);
     gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (o_camera));
 
-    gthree_object_set_position (GTHREE_OBJECT (o_camera),
+    gthree_object_set_position_point3d (GTHREE_OBJECT (o_camera),
                                 graphene_point3d_init (&pos, 0, max.y, 0));
     gthree_object_set_rotation (GTHREE_OBJECT (o_camera),
                                 graphene_euler_init (&e, -90, 0, 0));

@@ -85,7 +85,7 @@ camera_chase_update (CameraChase *chase,
       graphene_vec3_scale (&up, chase->y_offset, &up2);
       graphene_vec3_add (&target, &up2, &target);
 
-      gthree_object_set_position (GTHREE_OBJECT (chase->camera),
+      gthree_object_set_position_point3d (GTHREE_OBJECT (chase->camera),
                                   graphene_point3d_init (&pos,
                                                          graphene_vec3_get_x (&target),
                                                          graphene_vec3_get_y (&target) - graphene_vec3_get_y (&up2) + chase->y_offset,
@@ -114,7 +114,7 @@ camera_chase_update (CameraChase *chase,
                                              sinf (chase->time * .008) * chase->orbit_offset),
                          &target);
 
-      gthree_object_set_position (GTHREE_OBJECT (chase->camera),
+      gthree_object_set_position_point3d (GTHREE_OBJECT (chase->camera),
                                   graphene_point3d_init (&pos,
                                                          graphene_vec3_get_x (&target),
                                                          graphene_vec3_get_y (&target),

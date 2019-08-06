@@ -201,7 +201,7 @@ ship_controls_control (ShipControls *controls,
   controls->mesh = g_object_ref (mesh);
 
   gthree_object_set_matrix_auto_update (controls->mesh, FALSE);
-  gthree_object_set_position_vec3 (controls->dummy,
+  gthree_object_set_position (controls->dummy,
                                    gthree_object_get_position (mesh));
 }
 
@@ -463,7 +463,7 @@ ship_controls_update (ShipControls *controls,
       graphene_vec3_init (&fall_vec, 0, -20, 0);
       graphene_vec3_add (gthree_object_get_position (controls->mesh), &fall_vec, &pos);
 
-      gthree_object_set_position_vec3 (controls->mesh, &pos);
+      gthree_object_set_position (controls->mesh, &pos);
 
       return;
     }

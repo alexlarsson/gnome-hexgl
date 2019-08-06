@@ -49,7 +49,7 @@ ship_effects_new (ShipControls *controls)
                      gthree_object_get_position (gthree_object_get_parent (GTHREE_OBJECT (effects->booster))),
                      &light_pos);
 
-  gthree_object_set_position_vec3 (GTHREE_OBJECT (effects->booster_light), &light_pos);
+  gthree_object_set_position (GTHREE_OBJECT (effects->booster_light), &light_pos);
 
   return effects;
 }
@@ -90,7 +90,7 @@ ship_effects_update (ShipEffects *effects,
                                                        graphene_euler_get_x (old_rotation),
                                                        graphene_euler_get_y (old_rotation) + 57,
                                                        graphene_euler_get_z (old_rotation)));
-      gthree_object_set_scale (GTHREE_OBJECT (effects->booster),
+      gthree_object_set_scale_point3d (GTHREE_OBJECT (effects->booster),
                                graphene_point3d_init (&s, scale, scale, scale));
       gthree_material_set_opacity (GTHREE_MATERIAL (effects->booster_material), random + opacity);
       gthree_light_set_intensity (GTHREE_LIGHT (effects->booster_light), intensity * (random + 0.8));
