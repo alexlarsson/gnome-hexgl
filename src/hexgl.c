@@ -9,12 +9,35 @@
 #include "analysismap.h"
 #include "utils.h"
 
+GthreeEffectComposer *composer;
 GthreeObject *the_ship;
 CameraChase *camera_chase;
 ShipControls *ship_controls;
 ShipEffects *ship_effects;
 AnalysisMap *height_map;
 AnalysisMap *collision_map;
+GthreeSprite* hud_bg_sprite;
+GthreeOrthographicCamera *hud_camera;
+
+static void
+update_hud_sprites (int width,
+                    int height)
+{
+  graphene_vec3_t pos, s;
+  GthreeMaterial *material = gthree_sprite_get_material (hud_bg_sprite);
+  GthreeTexture *map = gthree_sprite_material_get_map (GTHREE_SPRITE_MATERIAL (material));
+  GdkPixbuf *pixbuf = gthree_texture_get_pixbuf (map);
+  int pixbuf_w = gdk_pixbuf_get_width (pixbuf);
+  int pixbuf_h = gdk_pixbuf_get_height (pixbuf);
+  float aspect = (float) pixbuf_h / pixbuf_w;
+
+  gthree_object_set_position (GTHREE_OBJECT (hud_bg_sprite),
+                              graphene_vec3_init (&pos, 0, - height / 2, 1));
+  gthree_object_set_scale (GTHREE_OBJECT (hud_bg_sprite),
+                           graphene_vec3_init (&s,
+                                               width, width * aspect, 1.0));
+
+}
 
 static void
 resize_area (GthreeArea *area,
@@ -23,6 +46,14 @@ resize_area (GthreeArea *area,
              GthreePerspectiveCamera *camera)
 {
   gthree_perspective_camera_set_aspect (camera, (float)width / (float)(height));
+
+  gthree_orthographic_camera_set_left (hud_camera, -width / 2);
+  gthree_orthographic_camera_set_right (hud_camera, width / 2);
+  gthree_orthographic_camera_set_top (hud_camera, height / 2);
+  gthree_orthographic_camera_set_bottom (hud_camera, -height / 2);
+
+  update_hud_sprites (width, height);
+
 }
 
 static void
@@ -260,8 +291,8 @@ render_area (GtkGLArea    *gl_area,
     gthree_scene_set_override_material (scene, NULL);
   }
 
-  gthree_renderer_render (renderer, scene,
-                          gthree_area_get_camera (GTHREE_AREA(gl_area)));
+  gthree_effect_composer_render (composer, gthree_area_get_renderer (GTHREE_AREA(gl_area)),
+                                 0.1);
   return TRUE;
 }
 
@@ -285,6 +316,14 @@ main (int argc, char *argv[])
   GtkWidget *window, *box, *hbox, *button, *area;
   GthreeScene *scene;
   GthreePerspectiveCamera *camera;
+  GthreePass *clear_pass;
+  GthreePass *render_pass;
+  GthreePass *clear_depth_pass;
+  GthreePass *hud_pass;
+  GthreeScene *hud_scene;
+  graphene_vec3_t pos;
+  GdkRGBA black = {0, 0, 0, 1.0};
+  graphene_vec2_t v2;
 
   gtk_init (&argc, &argv);
 
@@ -304,9 +343,49 @@ main (int argc, char *argv[])
   gtk_container_add (GTK_CONTAINER (box), hbox);
   gtk_widget_show (hbox);
 
+  composer = gthree_effect_composer_new  ();
+
+  clear_pass = gthree_clear_pass_new (&black);
+
+  clear_depth_pass = gthree_clear_pass_new (NULL);
+  gthree_pass_set_clear (clear_depth_pass, FALSE);
+  gthree_clear_pass_set_clear_depth (GTHREE_CLEAR_PASS (clear_depth_pass), TRUE);
+
   scene = gthree_scene_new ();
   camera = gthree_perspective_camera_new (70, 1, 1, 6000);
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (camera));
+
+  render_pass = gthree_render_pass_new (scene, GTHREE_CAMERA (camera), NULL);
+  gthree_pass_set_clear (render_pass, FALSE);
+
+  hud_scene = gthree_scene_new ();
+
+  g_autoptr(GthreeTexture) texture = load_texture ("hud-bg.png");
+
+  int width = 100, height = 100;
+
+  hud_bg_sprite = gthree_sprite_new (NULL);
+  gthree_sprite_set_center (hud_bg_sprite,
+                            graphene_vec2_init (&v2, 0.5, 0.0));
+  gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_bg_sprite)), texture);
+  gthree_object_add_child (GTHREE_OBJECT (hud_scene), GTHREE_OBJECT (hud_bg_sprite));
+
+  gthree_material_set_depth_test (gthree_sprite_get_material (hud_bg_sprite), FALSE);
+
+  hud_camera = gthree_orthographic_camera_new ( -width / 2, width / 2, height / 2, -height / 2, 1, 10);
+  gthree_object_add_child (GTHREE_OBJECT (hud_scene), GTHREE_OBJECT (hud_camera));
+  gthree_object_set_position (GTHREE_OBJECT (hud_camera),
+                              graphene_vec3_init (&pos, 0, 0, 10));
+
+  update_hud_sprites (width, height);
+
+  hud_pass = gthree_render_pass_new (hud_scene, GTHREE_CAMERA (hud_camera), NULL);
+  gthree_pass_set_clear (hud_pass, FALSE);
+
+  gthree_effect_composer_add_pass  (composer, clear_pass);
+  gthree_effect_composer_add_pass  (composer, render_pass);
+  gthree_effect_composer_add_pass  (composer, clear_depth_pass);
+  gthree_effect_composer_add_pass  (composer, hud_pass);
 
   area = gthree_area_new (scene, GTHREE_CAMERA (camera));
   g_signal_connect (area, "resize", G_CALLBACK (resize_area), camera);
@@ -334,7 +413,6 @@ main (int argc, char *argv[])
 
   ship_controls_control (ship_controls, the_ship);
   ship_effects = ship_effects_new (ship_controls);
-
 
   gtk_widget_show (window);
 
