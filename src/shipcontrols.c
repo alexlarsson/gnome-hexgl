@@ -169,9 +169,22 @@ ship_controls_set_difficulty (ShipControls *controls,
 }
 
 float
+ship_controls_get_real_speed_ratio (ShipControls *controls)
+{
+  return fmin (controls->maxSpeed, controls->speed + controls->boost) / controls->maxSpeed;
+}
+
+float
 ship_controls_get_speed_ratio (ShipControls *controls)
 {
   return (controls->speed + controls->boost) / controls->maxSpeed;
+}
+
+float
+ship_controls_get_shield_ratio (ShipControls *controls)
+{
+  // TODO:
+  return 0.5;
 }
 
 float

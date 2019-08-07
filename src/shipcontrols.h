@@ -20,10 +20,12 @@ void ship_controls_free (ShipControls *controls);
 void ship_controls_update (ShipControls *controls,
                            float dt);
 
+float ship_controls_get_real_speed_ratio (ShipControls *controls);
 float ship_controls_get_speed_ratio (ShipControls *controls);
 float ship_controls_get_boost_ratio (ShipControls *controls);
 gboolean ship_controls_is_accelerating (ShipControls *controls);
 gboolean ship_controls_is_destroyed (ShipControls *controls);
+float ship_controls_get_shield_ratio (ShipControls *controls);
 
 gboolean ship_controls_key_press (ShipControls *controls,
                                   GdkEventKey *event);
