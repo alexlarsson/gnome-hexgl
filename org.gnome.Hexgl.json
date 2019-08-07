@@ -1,0 +1,76 @@
+{
+    "app-id" : "org.gnome.Hexgl",
+    "runtime" : "org.gnome.Platform",
+    "runtime-version" : "master",
+    "sdk" : "org.gnome.Sdk",
+    "command" : "gnome-hexgl",
+    "tags" : [
+        "nightly"
+    ],
+    "desktop-file-name-prefix" : "(Nightly) ",
+    "finish-args" : [
+        "--share=ipc",
+        "--socket=x11",
+        "--socket=wayland",
+        "--filesystem=host",
+        "--device=dri"
+    ],
+    "build-options" : {
+        "cflags" : "-O2 -g",
+        "cxxflags" : "-O2 -g",
+        "env" : {
+            "V" : "1"
+        }
+    },
+    "cleanup" : [
+        "/include",
+        "/lib/pkgconfig",
+        "/share/pkgconfig",
+        "/share/aclocal",
+        "/man",
+        "/share/man",
+        "/share/gtk-doc",
+        "/share/vala",
+        "*.la",
+        "*.a"
+    ],
+    "modules" : [
+        {
+            "name" : "graphene",
+            "buildsystem": "meson",
+            "builddir": true,
+            "config-opts" : ["-Dgtk_doc=false", "-Dgobject_types=true"],
+            "sources" : [
+                {
+                    "type" : "git",
+                    "url" : "https://github.com/ebassi/graphene",
+                    "branch" : "master"
+                }
+            ]
+        },
+        {
+            "name" : "gthree",
+            "buildsystem": "meson",
+            "builddir": true,
+            "sources" : [
+                {
+                    "type" : "git",
+                    "url" : "https://github.com/alexlarsson/gthree",
+                    "branch" : "master"
+                }
+            ]
+        },
+        {
+            "name" : "gnome-hexgl",
+            "buildsystem": "meson",
+            "builddir": true,
+            "sources" : [
+                {
+                    "type" : "git",
+                    "url" : "https://github.com/alexlarsson/gnome-hexgl",
+                    "branch" : "master"
+                }
+            ]
+        }
+    ]
+}
