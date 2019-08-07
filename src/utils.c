@@ -31,6 +31,13 @@ load_cube_pixbufs (char *dir,
 }
 
 GthreeTexture *
+load_texture (const char *name)
+{
+  g_autoptr(GdkPixbuf) pixbuf = load_pixbuf (name);
+  return gthree_texture_new (pixbuf);
+}
+
+GthreeTexture *
 load_skybox (const char *name)
 {
   GdkPixbuf *pixbufs[6];
