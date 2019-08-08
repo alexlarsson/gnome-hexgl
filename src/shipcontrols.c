@@ -1,5 +1,7 @@
 #include "shipcontrols.h"
 
+#define RAD_TO_DEG(x)          ((x) * (180.f / GRAPHENE_PI))
+
 #define EPSILON 0.00000001
 
 struct _ShipControls {
@@ -245,31 +247,6 @@ ship_controls_free (ShipControls *controls)
   g_object_unref (controls->dummy);
   g_free (controls);
 }
-
-// TODO: Move to graphene
-static graphene_quaternion_t *
-multiply_quaternions (const graphene_quaternion_t *a,
-                      const graphene_quaternion_t *b,
-                      graphene_quaternion_t *res)
-{
-  // from http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/code/index.htm
-  graphene_vec4_t va, vb;
-  graphene_quaternion_to_vec4 (a, &va);
-  graphene_quaternion_to_vec4 (b, &vb);
-
-  float qax = graphene_vec4_get_x (&va), qay = graphene_vec4_get_y (&va), qaz = graphene_vec4_get_z (&va), qaw = graphene_vec4_get_w (&va);
-  float qbx = graphene_vec4_get_x (&vb), qby = graphene_vec4_get_y (&vb), qbz = graphene_vec4_get_z (&vb), qbw = graphene_vec4_get_w (&vb);
-
-  float x = qax * qbw + qaw * qbx + qay * qbz - qaz * qby;
-  float y = qay * qbw + qaw * qby + qaz * qbx - qax * qbz;
-  float z = qaz * qbw + qaw * qbz + qax * qby - qay * qbx;
-  float w = qaw * qbw - qax * qbx - qay * qby - qaz * qbz;
-
-  return graphene_quaternion_init (res, x, y, z, w);
-}
-
-#define RAD_TO_DEG(x)          ((x) * (180.f / GRAPHENE_PI))
-
 
 static void
 ship_controls_height_check (ShipControls *controls,
@@ -581,9 +558,9 @@ ship_controls_update (ShipControls *controls,
   graphene_quaternion_init (&quaternion,
                             rotation.x, rotation.y, rotation.z, 1);
   graphene_quaternion_normalize (&quaternion, &quaternion);
-  multiply_quaternions (&quaternion,
-                        gthree_object_get_quaternion (controls->dummy),
-                        &quaternion);
+  graphene_quaternion_multiply (&quaternion,
+                                gthree_object_get_quaternion (controls->dummy),
+                                &quaternion);
   gthree_object_set_quaternion (controls->dummy, &quaternion);
   gthree_object_update_matrix (controls->dummy);
 
