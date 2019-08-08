@@ -370,9 +370,7 @@ main (int argc, char *argv[])
   GtkWidget *window, *box, *hbox, *button, *area;
   GthreeScene *scene;
   GthreePerspectiveCamera *camera;
-  GthreePass *clear_pass;
-  GthreePass *render_pass;
-  GthreePass *clear_depth_pass;
+  GthreePass *clear_pass, *render_pass, *bloom_pass;
   GthreePass *hud_pass, *hud_pass2, *hud_pass3;
   GthreeScene *hud_scene, *hud_scene2, *hud_scene3;
   graphene_vec3_t pos;
@@ -405,16 +403,14 @@ main (int argc, char *argv[])
 
   clear_pass = gthree_clear_pass_new (&black);
 
-  clear_depth_pass = gthree_clear_pass_new (NULL);
-  gthree_pass_set_clear (clear_depth_pass, FALSE);
-  gthree_clear_pass_set_clear_depth (GTHREE_CLEAR_PASS (clear_depth_pass), TRUE);
-
   scene = gthree_scene_new ();
   camera = gthree_perspective_camera_new (70, 1, 1, 6000);
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (camera));
 
   render_pass = gthree_render_pass_new (scene, GTHREE_CAMERA (camera), NULL);
   gthree_pass_set_clear (render_pass, FALSE);
+
+  bloom_pass = gthree_bloom_pass_new  (0.5, 4, 256);
 
   hud_scene = gthree_scene_new ();
 
@@ -482,10 +478,9 @@ main (int argc, char *argv[])
   gthree_render_pass_set_clipping_planes (GTHREE_RENDER_PASS (hud_pass3), speed_clipping_planes);
   gthree_pass_set_clear (hud_pass3, FALSE);
 
-
   gthree_effect_composer_add_pass  (composer, clear_pass);
   gthree_effect_composer_add_pass  (composer, render_pass);
-  gthree_effect_composer_add_pass  (composer, clear_depth_pass);
+  gthree_effect_composer_add_pass  (composer, bloom_pass);
   gthree_effect_composer_add_pass  (composer, hud_pass);
   gthree_effect_composer_add_pass  (composer, hud_pass2);
   gthree_effect_composer_add_pass  (composer, hud_pass3);
