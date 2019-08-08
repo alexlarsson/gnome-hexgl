@@ -8,6 +8,7 @@
 #include "shipeffects.h"
 #include "analysismap.h"
 #include "utils.h"
+#include "shaders.h"
 
 GthreeEffectComposer *composer;
 GthreeObject *the_ship;
@@ -19,6 +20,7 @@ AnalysisMap *collision_map;
 GthreeSprite* hud_bg_sprite;
 GthreeSprite* hud_fg_speed_sprite;
 GthreeSprite* hud_fg_shield_sprite;
+GthreeUniforms *hex_uniforms;
 
 float hud_aspect;
 
@@ -66,6 +68,9 @@ resize_area (GthreeArea *area,
 
   update_hud_sprites (width, height);
 
+  gthree_uniforms_set_float (hex_uniforms, "size", 512.0 * (width ) / (1633.0 * gtk_widget_get_scale_factor (GTK_WIDGET (area))));
+  gthree_uniforms_set_float (hex_uniforms, "rx", width / gtk_widget_get_scale_factor (GTK_WIDGET (area)));
+  gthree_uniforms_set_float (hex_uniforms, "ry", height / gtk_widget_get_scale_factor (GTK_WIDGET (area)));
 }
 
 static void
@@ -370,9 +375,10 @@ main (int argc, char *argv[])
   GtkWidget *window, *box, *hbox, *button, *area;
   GthreeScene *scene;
   GthreePerspectiveCamera *camera;
-  GthreePass *clear_pass, *render_pass, *bloom_pass;
+  GthreePass *clear_pass, *render_pass, *bloom_pass, *hex_pass;
   GthreePass *hud_pass, *hud_pass2, *hud_pass3;
   GthreeScene *hud_scene, *hud_scene2, *hud_scene3;
+  GthreeShader *hex_shader;
   graphene_vec3_t pos;
   GdkRGBA black = {0, 0, 0, 1.0};
   graphene_vec2_t v2;
@@ -411,6 +417,13 @@ main (int argc, char *argv[])
   gthree_pass_set_clear (render_pass, FALSE);
 
   bloom_pass = gthree_bloom_pass_new  (0.5, 4, 256);
+
+  g_autoptr(GthreeTexture) hex_texture = load_texture ("hex.jpg");
+
+  hex_shader = hexvignette_shader_clone ();
+  hex_uniforms = gthree_shader_get_uniforms (hex_shader);
+  gthree_uniforms_set_texture (hex_uniforms, "tHex", hex_texture);
+  hex_pass = gthree_shader_pass_new (hex_shader, NULL);
 
   hud_scene = gthree_scene_new ();
 
@@ -481,6 +494,7 @@ main (int argc, char *argv[])
   gthree_effect_composer_add_pass  (composer, clear_pass);
   gthree_effect_composer_add_pass  (composer, render_pass);
   gthree_effect_composer_add_pass  (composer, bloom_pass);
+  gthree_effect_composer_add_pass  (composer, hex_pass);
   gthree_effect_composer_add_pass  (composer, hud_pass);
   gthree_effect_composer_add_pass  (composer, hud_pass2);
   gthree_effect_composer_add_pass  (composer, hud_pass3);
