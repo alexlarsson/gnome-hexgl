@@ -251,13 +251,13 @@ ship_effects_update (ShipEffects *effects,
 
   if (ship_controls_get_collision_right (effects->controls))
     {
-      particles_emit (effects->right_sparks, 10);
+      particles_emit (effects->right_sparks, 20);
       particles_emit (effects->right_clouds, 5);
     }
 
   if (ship_controls_get_collision_left (effects->controls))
     {
-      particles_emit (effects->left_sparks, 10);
+      particles_emit (effects->left_sparks, 20);
       particles_emit (effects->left_clouds, 5);
     }
 
