@@ -26,6 +26,8 @@ float                  ship_controls_get_boost_ratio      (ShipControls *control
 gboolean               ship_controls_is_accelerating      (ShipControls *controls);
 gboolean               ship_controls_is_destroyed         (ShipControls *controls);
 float                  ship_controls_get_shield_ratio     (ShipControls *controls);
+int                    ship_controls_get_shield           (ShipControls *controls,
+                                                           float scale);
 gboolean               ship_controls_key_press            (ShipControls *controls,
                                                            GdkEventKey  *event);
 gboolean               ship_controls_key_release          (ShipControls *controls,

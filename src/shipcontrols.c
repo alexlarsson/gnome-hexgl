@@ -49,6 +49,7 @@ struct _ShipControls {
   float angular;
   float speed;
   float speedRatio;
+  float shield;
   float boost;
   float roll;
   graphene_point3d_t repulsionForce;
@@ -115,6 +116,7 @@ ship_controls_new (void)
   controls->speedRatio = 0.0;
   controls->boost = 0.0;
   controls->roll = 0.0;
+  controls->shield = 1.0;
   graphene_point3d_init (&controls->repulsionForce, 0, 0, 0);
   controls->gradient = 0.0;
   controls->gradientTarget = 0.0;
@@ -190,6 +192,12 @@ ship_controls_get_current_velocity (ShipControls *controls)
   return &controls->currentVelocity;
 }
 
+int
+ship_controls_get_real_speed (ShipControls *controls, float scale)
+{
+  return roundf ((controls->speed + controls->boost) * scale);
+}
+
 float
 ship_controls_get_real_speed_ratio (ShipControls *controls)
 {
@@ -205,8 +213,13 @@ ship_controls_get_speed_ratio (ShipControls *controls)
 float
 ship_controls_get_shield_ratio (ShipControls *controls)
 {
-  // TODO:
-  return 0.5;
+  return controls->shield / controls->maxShield;
+}
+
+int
+ship_controls_get_shield (ShipControls *controls, float scale)
+{
+  return roundf (controls->shield * scale);
 }
 
 float
@@ -224,9 +237,40 @@ ship_controls_is_accelerating (ShipControls *controls)
 gboolean
 ship_controls_is_destroyed (ShipControls *controls)
 {
-  // TODO
-  return FALSE;
+  return controls->destroyed;
 }
+
+void
+ship_controls_reset (ShipControls *controls,
+                     graphene_vec3_t position,
+                     graphene_vec3_t rotation)
+{
+#ifdef TODO
+  this.resetPos = position;
+  this.resetRot = rotation;
+  this.movement.set(0,0,0);
+  this.rotation.copy(rotation);
+  this.roll = 0.0;
+  this.drift = 0.0;
+  this.speed = 0.0;
+  this.speedRatio = 0.0;
+  this.boost = 0.0;
+  this.shield = this.maxShield;
+  this.destroyed = false;
+
+  this.dummy.position.copy(position);
+  this.quaternion.set(rotation.x, rotation.y, rotation.z, 1).normalize();
+  this.dummy.quaternion.set(0,0,0,1);
+  this.dummy.quaternion.multiplySelf(this.quaternion);
+
+  this.dummy.matrix.setPosition(this.dummy.position);
+  this.dummy.matrix.setRotationFromQuaternion(this.dummy.quaternion);
+
+  this.mesh.matrix.identity();
+  this.mesh.applyMatrix(this.dummy.matrix);
+#endif
+}
+
 
 void
 ship_controls_control (ShipControls *controls,
@@ -389,10 +433,8 @@ ship_controls_collision_check (ShipControls *controls,
   if (controls->collision_map == NULL)
     return;
 
-  /*
   if (controls->shieldDelay > 0)
     controls->shieldDelay -= dt;
-  */
 
   controls->collision_left = FALSE;
   controls->collision_right = FALSE;
@@ -408,11 +450,9 @@ ship_controls_collision_check (ShipControls *controls,
     {
       //bkcore.Audio.play('crash');
 
-#if 0
       // Shield
-      var sr = (controls->getRealSpeed() / controls->maxSpeed);
+      float sr = (float) ship_controls_get_real_speed (controls, 1) / controls->maxSpeed;
       controls->shield -= sr * sr * 0.8 * controls->shieldDamage;
-#endif
 
       // Repulsion
       graphene_vec3_t repulsionVLeft;
@@ -495,6 +535,20 @@ lerp_point (const graphene_point3d_t *a, const graphene_point3d_t *b, float alph
   dest->x = lerp (a->x, b->x, alpha);
   dest->y = lerp (a->y, b->y, alpha);
   dest->z = lerp (a->z, b->z, alpha);
+}
+
+static void
+ship_controls_destroy (ShipControls *controls)
+{
+  //bkcore.Audio.play('destroyed');
+  //bkcore.Audio.stop('bg');
+  //bkcore.Audio.stop('wind');
+
+  controls->active = FALSE;
+  controls->destroyed = TRUE;
+  controls->collision_front = FALSE;
+  controls->collision_left = FALSE;
+  controls->collision_right = FALSE;
 }
 
 void
@@ -622,13 +676,11 @@ ship_controls_update (ShipControls *controls,
   gthree_object_set_quaternion (controls->dummy, &quaternion);
   gthree_object_update_matrix (controls->dummy);
 
-  /*
   if (controls->shield <= 0.0)
     {
       controls->shield = 0.0;
-      controls->destroy();
+      ship_controls_destroy (controls);
     }
-  */
 
   if (controls->mesh)
     {
