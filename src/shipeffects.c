@@ -21,6 +21,8 @@ struct _ShipEffects {
 
   Particles *right_sparks;
   Particles *left_sparks;
+  Particles *right_clouds;
+  Particles *left_clouds;
 };
 
 ShipEffects *
@@ -95,16 +97,16 @@ ship_effects_new (GthreeScene *scene,
   graphene_vec3_normalize (&effects->pOffset, &effects->pOffset);
   graphene_vec3_normalize (&effects->pRad, &effects->pRad);
 
-  GdkRGBA color1 = { 1.0, 1.0, 1.0, 1.0 };
-  GdkRGBA color2 = { 1.0, 0.7529411764705882, 0.0, 1.0 };
+  GdkRGBA spark_color1 = { 1.0, 1.0, 1.0, 1.0 };
+  GdkRGBA spark_color2 = { 1.0, 0.7529411764705882, 0.0, 1.0 };
 
   g_autoptr(GthreeTexture) spark_texture = load_texture ("spark.png");
 
   effects->right_sparks = particles_new (200, 2);
   particles_set_velocity_randomness (effects->right_sparks, graphene_vec3_init (&v, 0.4, 0.4, 0.4));
   particles_set_life (effects->right_sparks, 60);
-  particles_set_color1 (effects->right_sparks, &color1);
-  particles_set_color2 (effects->right_sparks, &color2);
+  particles_set_color1 (effects->right_sparks, &spark_color1);
+  particles_set_color2 (effects->right_sparks, &spark_color2);
   particles_set_map (effects->right_sparks, spark_texture);
 
   gthree_object_add_child (GTHREE_OBJECT (scene), particles_get_object (effects->right_sparks));
@@ -112,11 +114,39 @@ ship_effects_new (GthreeScene *scene,
   effects->left_sparks = particles_new (200, 2);
   particles_set_velocity_randomness (effects->left_sparks, graphene_vec3_init (&v, 0.4, 0.4, 0.4));
   particles_set_life (effects->left_sparks, 60);
-  particles_set_color1 (effects->left_sparks, &color1);
-  particles_set_color2 (effects->left_sparks, &color2);
+  particles_set_color1 (effects->left_sparks, &spark_color1);
+  particles_set_color2 (effects->left_sparks, &spark_color2);
   particles_set_map (effects->left_sparks, spark_texture);
 
   gthree_object_add_child (GTHREE_OBJECT (scene), particles_get_object (effects->left_sparks));
+
+  g_autoptr(GthreeTexture) cloud_texture = load_texture ("cloud.png");
+  GdkRGBA cloud_color1 = { 0.6431372549019608, 0.9450980392156862, 1.0 };
+  GdkRGBA cloud_color2 = { 0.4, 0.4, 0.4, 1.0 };
+
+  effects->right_clouds = particles_new (200, 6);
+  particles_set_life (effects->right_clouds, 60);
+  particles_set_spawn_point (effects->right_clouds, graphene_vec3_init (&v, -3, -0.3, 0));
+  particles_set_spawn_radius (effects->right_clouds, graphene_vec3_init (&v, 1, 1, 2));
+  particles_set_velocity (effects->right_clouds, graphene_vec3_init (&v, 0, 0, -0.4));
+  particles_set_velocity_randomness (effects->right_clouds, graphene_vec3_init (&v, 0.05, 0.05, 0.1));
+  particles_set_color1 (effects->right_clouds, &cloud_color1);
+  particles_set_color2 (effects->right_clouds, &cloud_color2);
+  particles_set_map (effects->right_clouds, cloud_texture);
+
+  gthree_object_add_child (GTHREE_OBJECT (the_ship), particles_get_object (effects->right_clouds));
+
+  effects->left_clouds = particles_new (200, 6);
+  particles_set_life (effects->left_clouds, 60);
+  particles_set_spawn_point (effects->left_clouds, graphene_vec3_init (&v, 3, -0.3, 0));
+  particles_set_spawn_radius (effects->left_clouds, graphene_vec3_init (&v, 1, 1, 2));
+  particles_set_velocity (effects->left_clouds, graphene_vec3_init (&v, 0, 0, -0.4));
+  particles_set_velocity_randomness (effects->left_clouds, graphene_vec3_init (&v, 0.05, 0.05, 0.1));
+  particles_set_color1 (effects->left_clouds, &cloud_color1);
+  particles_set_color2 (effects->left_clouds, &cloud_color2);
+  particles_set_map (effects->left_clouds, cloud_texture);
+
+  gthree_object_add_child (GTHREE_OBJECT (the_ship), particles_get_object (effects->left_clouds));
 
   return effects;
 }
@@ -222,13 +252,17 @@ ship_effects_update (ShipEffects *effects,
   if (ship_controls_get_collision_right (effects->controls))
     {
       particles_emit (effects->right_sparks, 10);
+      particles_emit (effects->right_clouds, 5);
     }
 
   if (ship_controls_get_collision_left (effects->controls))
     {
       particles_emit (effects->left_sparks, 10);
+      particles_emit (effects->left_clouds, 5);
     }
 
   particles_update (effects->right_sparks, dt);
   particles_update (effects->left_sparks, dt);
+  particles_update (effects->right_clouds, dt);
+  particles_update (effects->left_clouds, dt);
 }
