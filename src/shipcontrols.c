@@ -345,9 +345,47 @@ ship_controls_height_check (ShipControls *controls,
 }
 
 static void
+ship_controls_booster_check (ShipControls *controls,
+                             graphene_point3d_t *movement,
+                             float dt)
+{
+  graphene_point3d_t pos;
+  GdkRGBA collision;
+
+  if (controls->collision_map == NULL)
+    return;
+
+
+  graphene_point3d_init_from_vec3 (&pos,
+                                   gthree_object_get_position (controls->dummy));
+
+
+  analysis_map_lookup_rgba_bilinear (controls->collision_map, pos.x, pos.z, &collision);
+
+
+  controls->boost -= controls->boosterDecay * dt;
+  if (controls->boost < 0)
+    {
+      controls->boost = 0.0;
+      //bkcore.Audio.stop('boost');
+    }
+
+  if (collision.red >= 0.9 && collision.green < 0.5 && collision.blue < 0.5)
+    {
+      //bkcore.Audio.play('boost');
+      controls->boost = controls->boosterSpeed;
+    }
+
+  movement->z += controls->boost * dt;
+}
+
+static void
 ship_controls_collision_check (ShipControls *controls,
                                float dt)
 {
+  graphene_point3d_t pos;
+  GdkRGBA collision;
+
   if (controls->collision_map == NULL)
     return;
 
@@ -361,12 +399,9 @@ ship_controls_collision_check (ShipControls *controls,
   controls->collision_front = FALSE;
 
 
-  graphene_point3d_t pos;
   graphene_point3d_init_from_vec3 (&pos,
                                    gthree_object_get_position (controls->dummy));
 
-
-  GdkRGBA collision;
   analysis_map_lookup_rgba_bilinear (controls->collision_map, pos.x, pos.z, &collision);
 
   if (collision.red < 1.0)
@@ -444,9 +479,7 @@ ship_controls_collision_check (ShipControls *controls,
 
       controls->speed *= controls->collisionSpeedDecrease;
       controls->speed *= (1-controls->collisionSpeedDecreaseCoef * (1 - collision.red));
-#if 0
       controls->boost = 0;
-#endif
     }
 }
 
@@ -567,7 +600,7 @@ ship_controls_update (ShipControls *controls,
 
   graphene_vec3_t collisionPreviousPosition = *gthree_object_get_position (controls->dummy);
 
-  //controls->boosterCheck(dt);
+  ship_controls_booster_check (controls, &movement, dt);
 
   gthree_object_translate_x (controls->dummy, movement.x);
   gthree_object_translate_z (controls->dummy, movement.z);
