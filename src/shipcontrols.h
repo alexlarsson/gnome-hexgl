@@ -20,6 +20,8 @@ gboolean               ship_controls_get_collision_right  (ShipControls *control
 void                   ship_controls_free                 (ShipControls *controls);
 void                   ship_controls_update               (ShipControls *controls,
                                                            float         dt);
+int                    ship_controls_get_real_speed       (ShipControls *controls,
+                                                           float         scale);
 float                  ship_controls_get_real_speed_ratio (ShipControls *controls);
 float                  ship_controls_get_speed_ratio      (ShipControls *controls);
 float                  ship_controls_get_boost_ratio      (ShipControls *controls);

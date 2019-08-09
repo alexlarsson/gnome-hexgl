@@ -195,7 +195,7 @@ ship_controls_get_current_velocity (ShipControls *controls)
 int
 ship_controls_get_real_speed (ShipControls *controls, float scale)
 {
-  return roundf ((controls->speed + controls->boost) * scale);
+  return (int)roundf ((controls->speed + controls->boost) * scale);
 }
 
 float
@@ -219,7 +219,7 @@ ship_controls_get_shield_ratio (ShipControls *controls)
 int
 ship_controls_get_shield (ShipControls *controls, float scale)
 {
-  return roundf (controls->shield * scale);
+  return (int)roundf (controls->shield * scale);
 }
 
 float

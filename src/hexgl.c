@@ -20,7 +20,14 @@ AnalysisMap *collision_map;
 GthreeSprite* hud_bg_sprite;
 GthreeSprite* hud_fg_speed_sprite;
 GthreeSprite* hud_fg_shield_sprite;
+GthreeSprite* hud_data_sprite;
+GthreeTexture *hud_data_texture;
+cairo_surface_t *hud_data_surface;
 GthreeUniforms *hex_uniforms;
+
+PangoLayout *hud_speed_layout;
+PangoLayout *hud_shield_layout;
+PangoContext *pango_context;
 
 float hud_aspect;
 
@@ -33,24 +40,34 @@ update_hud_sprites (int width,
                     int height)
 {
   graphene_vec3_t pos, s;
+  float hud_width, hud_height;
+
+  hud_width = width; // fullscreen width
+  hud_height = hud_width * hud_aspect;
 
   gthree_object_set_position (GTHREE_OBJECT (hud_bg_sprite),
                               graphene_vec3_init (&pos, 0, - height / 2, 1));
   gthree_object_set_scale (GTHREE_OBJECT (hud_bg_sprite),
                            graphene_vec3_init (&s,
-                                               width, width * hud_aspect, 1.0));
+                                               hud_width, hud_height, 1.0));
 
   gthree_object_set_position (GTHREE_OBJECT (hud_fg_shield_sprite),
                               graphene_vec3_init (&pos, 0, - height / 2, 1));
   gthree_object_set_scale (GTHREE_OBJECT (hud_fg_shield_sprite),
                            graphene_vec3_init (&s,
-                                               width, width * hud_aspect, 1.0));
+                                               hud_width, hud_height, 1.0));
 
   gthree_object_set_position (GTHREE_OBJECT (hud_fg_speed_sprite),
                               graphene_vec3_init (&pos, 0, - height / 2, 1));
   gthree_object_set_scale (GTHREE_OBJECT (hud_fg_speed_sprite),
                            graphene_vec3_init (&s,
-                                               width, width * hud_aspect, 1.0));
+                                               hud_width, hud_height, 1.0));
+
+  gthree_object_set_position (GTHREE_OBJECT (hud_data_sprite),
+                              graphene_vec3_init (&pos, 0, - height / 2 + hud_height * 0.6, 1));
+  gthree_object_set_scale (GTHREE_OBJECT (hud_data_sprite),
+                           graphene_vec3_init (&s,
+                                               hud_height * 0.6, hud_height * 0.6, 1.0));
 }
 
 static void
@@ -134,6 +151,35 @@ tick (GtkWidget     *widget,
 
   ship_controls_update (ship_controls, dt);
   ship_effects_update (ship_effects, dt);
+
+  cairo_t *cr = cairo_create (hud_data_surface);
+
+  // Flip y for OpenGL
+  cairo_scale (cr, 1, -1);
+  cairo_translate (cr, 0, -128);
+
+  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
+  cairo_paint (cr);
+
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+
+  cairo_set_source_rgba (cr, 1, 1, 1, 1);
+  cairo_move_to (cr, 64, 20);
+
+  g_autofree char *speed_text = g_strdup_printf ("%d", ship_controls_get_real_speed (ship_controls, 100));
+  pango_layout_set_text (hud_speed_layout, speed_text, -1);
+  pango_cairo_show_layout (cr, hud_speed_layout);
+
+  cairo_set_source_rgba (cr, 0.7, 0.7, 0.7, 1);
+  cairo_move_to (cr, 64, 85);
+
+  g_autofree char *shield_text = g_strdup_printf ("%d", ship_controls_get_shield (ship_controls, 100));
+  pango_layout_set_text (hud_shield_layout, shield_text, -1);
+  pango_cairo_show_layout (cr, hud_shield_layout);
+
+  cairo_destroy (cr);
+
+  gthree_texture_set_needs_update (hud_data_texture, TRUE);
 
   camera_chase_update (camera_chase, dt, ship_controls_get_speed_ratio (ship_controls));
 
@@ -477,6 +523,31 @@ main (int argc, char *argv[])
   gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_fg_speed_sprite)), hud_speed_texture);
   gthree_material_set_depth_test (gthree_sprite_get_material (hud_fg_speed_sprite), FALSE);
   gthree_object_add_child (GTHREE_OBJECT (hud_scene3), GTHREE_OBJECT (hud_fg_speed_sprite));
+
+  // text data for hud
+  hud_data_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 128, 128);
+  hud_data_texture = gthree_texture_new_from_surface (hud_data_surface);
+  gthree_texture_set_flip_y (hud_data_texture, FALSE); // We'll just draw upside down to avoid performance penalty
+
+  hud_data_sprite = gthree_sprite_new (NULL);
+  gthree_sprite_set_center (hud_data_sprite, graphene_vec2_init (&v2, 0.5, 0.5));
+  gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_data_sprite)), hud_data_texture);
+  gthree_material_set_depth_test (gthree_sprite_get_material (hud_data_sprite), FALSE);
+  gthree_object_add_child (GTHREE_OBJECT (hud_scene), GTHREE_OBJECT (hud_data_sprite));
+
+  pango_context = gtk_widget_create_pango_context (window);
+
+  hud_speed_layout = pango_layout_new (pango_context);
+  PangoFontDescription *fd = pango_font_description_from_string ("Sans bold 50");
+  pango_layout_set_font_description (hud_speed_layout, fd);
+  pango_layout_set_alignment (hud_speed_layout, PANGO_ALIGN_CENTER);
+  pango_layout_set_width (hud_speed_layout, 128);
+
+  hud_shield_layout = pango_layout_new (pango_context);
+  fd = pango_font_description_from_string ("Sans bold 20");
+  pango_layout_set_font_description (hud_shield_layout, fd);
+  pango_layout_set_alignment (hud_shield_layout, PANGO_ALIGN_CENTER);
+  pango_layout_set_width (hud_shield_layout, 128);
 
   update_hud_sprites (width, height);
 
