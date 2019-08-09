@@ -1,25 +1,39 @@
 #include "shipeffects.h"
 #include "shipcontrols.h"
 #include "utils.h"
+#include "particles.h"
 
 struct _ShipEffects {
+  GthreeScene *scene;
   ShipControls *controls;
   GthreeMeshBasicMaterial *booster_material;
   GthreeObject *booster;
   GthreeMesh *booster_mesh;
   GthreePointLight *booster_light;
   GthreeSprite *booster_sprite;
+
+  graphene_vec3_t pVel;
+  graphene_vec3_t pOffset;
+  graphene_vec3_t pRad;
+  float pVelS;
+  float pOffsetS;
+  float pRadS;
+
+  Particles *right_sparks;
+  Particles *left_sparks;
 };
 
 ShipEffects *
-ship_effects_new (ShipControls *controls)
+ship_effects_new (GthreeScene *scene,
+                  ShipControls *controls)
 {
   ShipEffects *effects = g_new0 (ShipEffects, 1);
   GthreeObject *the_ship;
   GthreeMaterial *orig_booster_material;
   GthreeTexture *booster_texture;
-  graphene_vec3_t light_pos, s;
+  graphene_vec3_t light_pos, s, v;
 
+  effects->scene = scene;
   effects->controls = controls;
 
   the_ship = ship_controls_get_mesh (controls);
@@ -69,6 +83,41 @@ ship_effects_new (ShipControls *controls)
 
   gthree_object_add_child (GTHREE_OBJECT (effects->booster), GTHREE_OBJECT (effects->booster_sprite));
 
+  /* Particles */
+
+  graphene_vec3_init (&effects->pVel, 0.5, 0, 0);
+  graphene_vec3_init (&effects->pOffset, -3, -0.3, 0);
+  graphene_vec3_init (&effects->pRad, 0, 0, 1.5);
+  effects->pVelS = graphene_vec3_length (&effects->pVel);
+  effects->pOffsetS = graphene_vec3_length (&effects->pOffset);
+  effects->pRadS = graphene_vec3_length (&effects->pRad);
+  graphene_vec3_normalize (&effects->pVel, &effects->pVel);
+  graphene_vec3_normalize (&effects->pOffset, &effects->pOffset);
+  graphene_vec3_normalize (&effects->pRad, &effects->pRad);
+
+  GdkRGBA color1 = { 1.0, 1.0, 1.0, 1.0 };
+  GdkRGBA color2 = { 1.0, 0.7529411764705882, 0.0, 1.0 };
+
+  g_autoptr(GthreeTexture) spark_texture = load_texture ("spark.png");
+
+  effects->right_sparks = particles_new (200, 2);
+  particles_set_velocity_randomness (effects->right_sparks, graphene_vec3_init (&v, 0.4, 0.4, 0.4));
+  particles_set_life (effects->right_sparks, 60);
+  particles_set_color1 (effects->right_sparks, &color1);
+  particles_set_color2 (effects->right_sparks, &color2);
+  particles_set_map (effects->right_sparks, spark_texture);
+
+  gthree_object_add_child (GTHREE_OBJECT (scene), particles_get_object (effects->right_sparks));
+
+  effects->left_sparks = particles_new (200, 2);
+  particles_set_velocity_randomness (effects->left_sparks, graphene_vec3_init (&v, 0.4, 0.4, 0.4));
+  particles_set_life (effects->left_sparks, 60);
+  particles_set_color1 (effects->left_sparks, &color1);
+  particles_set_color2 (effects->left_sparks, &color2);
+  particles_set_map (effects->left_sparks, spark_texture);
+
+  gthree_object_add_child (GTHREE_OBJECT (scene), particles_get_object (effects->left_sparks));
+
   return effects;
 }
 
@@ -117,4 +166,69 @@ ship_effects_update (ShipEffects *effects,
       gthree_material_set_opacity (GTHREE_MATERIAL (gthree_sprite_get_material (effects->booster_sprite)), random + opacity);
     }
 
+  /* Update particles */
+
+  GthreeObject *dummy = ship_controls_get_dummy (effects->controls);
+  GthreeObject *mesh = ship_controls_get_mesh (effects->controls);
+
+  graphene_vec3_t shipVelocity;
+  graphene_vec3_scale (ship_controls_get_current_velocity (effects->controls), 0.7, &shipVelocity);
+
+  graphene_vec3_t spawn_point;
+  graphene_vec3_t spawn_vel;
+  graphene_vec3_t spawn_rad;
+  graphene_vec3_t flip_x;
+
+  graphene_vec3_init (&flip_x, -1, 1, 1);
+
+  // right sparks
+
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (mesh),
+                                  &effects->pOffset, &spawn_point);
+  graphene_vec3_scale (&spawn_point, effects->pOffsetS, &spawn_point);
+  graphene_vec3_add (&spawn_point, gthree_object_get_position (dummy), &spawn_point);
+
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (dummy),
+                                  &effects->pVel, &spawn_vel);
+  graphene_vec3_scale (&spawn_vel, effects->pVelS, &spawn_vel);
+  graphene_vec3_add (&spawn_vel, &shipVelocity, &spawn_vel);
+
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (mesh),
+                                  &effects->pRad, &spawn_rad);
+  graphene_vec3_scale (&spawn_rad, effects->pRadS, &spawn_rad);
+
+  particles_set_spawn_point (effects->right_sparks, &spawn_point);
+  particles_set_velocity (effects->right_sparks, &spawn_vel);
+  particles_set_spawn_radius (effects->right_sparks, &spawn_rad);
+
+  // left sparks
+
+  graphene_vec3_multiply (&effects->pOffset, &flip_x, &spawn_point);
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (mesh),
+                                  &spawn_point, &spawn_point);
+  graphene_vec3_scale (&spawn_point, effects->pOffsetS, &spawn_point);
+  graphene_vec3_add (&spawn_point, gthree_object_get_position (dummy), &spawn_point);
+
+  graphene_vec3_multiply (&effects->pVel, &flip_x, &spawn_vel);
+  graphene_matrix_transform_vec3 (gthree_object_get_matrix (mesh),
+                                  &spawn_vel, &spawn_vel);
+  graphene_vec3_scale (&spawn_vel, effects->pVelS, &spawn_vel);
+  graphene_vec3_add (&spawn_vel, &shipVelocity, &spawn_vel);
+
+  particles_set_spawn_point (effects->left_sparks, &spawn_point);
+  particles_set_velocity (effects->left_sparks, &spawn_vel);
+  particles_set_spawn_radius (effects->left_sparks, &spawn_rad); // same as right
+
+  if (ship_controls_get_collision_right (effects->controls))
+    {
+      particles_emit (effects->right_sparks, 10);
+    }
+
+  if (ship_controls_get_collision_left (effects->controls))
+    {
+      particles_emit (effects->left_sparks, 10);
+    }
+
+  particles_update (effects->right_sparks, dt);
+  particles_update (effects->left_sparks, dt);
 }

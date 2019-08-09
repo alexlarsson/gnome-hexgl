@@ -68,6 +68,8 @@ struct _ShipControls {
   gboolean key_ltrigger;
   gboolean key_rtrigger;
   gboolean key_use;
+
+  graphene_vec3_t currentVelocity;
 };
 
 ShipControls *
@@ -170,6 +172,24 @@ ship_controls_set_difficulty (ShipControls *controls,
     }
 }
 
+gboolean
+ship_controls_get_collision_left (ShipControls *controls)
+{
+  return controls->collision_left;
+}
+
+gboolean
+ship_controls_get_collision_right (ShipControls *controls)
+{
+  return controls->collision_right;
+}
+
+const graphene_vec3_t *
+ship_controls_get_current_velocity (ShipControls *controls)
+{
+  return &controls->currentVelocity;
+}
+
 float
 ship_controls_get_real_speed_ratio (ShipControls *controls)
 {
@@ -224,6 +244,12 @@ GthreeObject *
 ship_controls_get_mesh (ShipControls *controls)
 {
   return controls->mesh;
+}
+
+GthreeObject *
+ship_controls_get_dummy (ShipControls *controls)
+{
+  return controls->dummy;
 }
 
 void
@@ -330,9 +356,9 @@ ship_controls_collision_check (ShipControls *controls,
     controls->shieldDelay -= dt;
   */
 
-  controls->collision_left = false;
-  controls->collision_right = false;
-  controls->collision_front = false;
+  controls->collision_left = FALSE;
+  controls->collision_right = FALSE;
+  controls->collision_front = FALSE;
 
 
   graphene_point3d_t pos;
@@ -549,9 +575,8 @@ ship_controls_update (ShipControls *controls,
   ship_controls_height_check (controls, &movement, dt);
   gthree_object_translate_y (controls->dummy, movement.y);
 
-  graphene_vec3_t currentVelocity; // Used below for audio
   graphene_vec3_subtract (gthree_object_get_position (controls->dummy), &collisionPreviousPosition,
-                          &currentVelocity);
+                          &controls->currentVelocity);
 
   ship_controls_collision_check (controls, dt);
 
@@ -615,7 +640,7 @@ ship_controls_update (ShipControls *controls,
 
   //Update listener position
   //bkcore.Audio.setListenerPos(&movement);
-  //bkcore.Audio.setListenerVelocity(&currentVelocity);
+  //bkcore.Audio.setListenerVelocity(&controls->currentVelocity);
 
 }
 

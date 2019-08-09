@@ -524,7 +524,7 @@ main (int argc, char *argv[])
   camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
 
   ship_controls_control (ship_controls, the_ship);
-  ship_effects = ship_effects_new (ship_controls);
+  ship_effects = ship_effects_new (scene, ship_controls);
 
   gtk_widget_show (window);
 

@@ -3,7 +3,8 @@
 
 typedef struct _ShipEffects ShipEffects;
 
-ShipEffects *ship_effects_new (ShipControls *controls);
+ShipEffects *ship_effects_new (GthreeScene *scene,
+                               ShipControls *controls);
 
 void ship_effects_free (ShipEffects *effects);
 void ship_effects_update (ShipEffects *effects,
