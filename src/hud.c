@@ -1,6 +1,41 @@
 #include "hud.h"
 #include "utils.h"
 
+static GthreeTexture *
+cairo_texture_new (int width, int height)
+{
+  cairo_surface_t *surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+  GthreeTexture *texture = gthree_texture_new_from_surface (surface);
+  gthree_texture_set_flip_y (texture, FALSE); // We'll draw upside down to avoid flip on upload
+
+  return texture;
+}
+
+static cairo_t *
+cairo_texture_begin_paint (GthreeTexture *texture)
+{
+  cairo_surface_t *surface = gthree_texture_get_surface (texture);
+  cairo_t *cr = cairo_create (surface);
+  int height = cairo_image_surface_get_height (surface);
+
+  // Flip y for OpenGL
+  cairo_scale (cr, 1, -1);
+  cairo_translate (cr, 0, -height);
+
+  // Clear to transparent
+  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
+  cairo_paint (cr);
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+
+  return cr;
+}
+
+static void
+cairo_texture_end_paint (GthreeTexture *texture)
+{
+  gthree_texture_set_needs_update (texture, TRUE);
+}
+
 struct _HUD {
   ShipControls *controls;
   PangoContext *pango_context;
@@ -11,14 +46,25 @@ struct _HUD {
   GthreeSprite *bg_sprite;
   GthreeSprite *fg_speed_sprite;
   GthreeSprite *fg_shield_sprite;
+
   GthreeSprite *data_sprite;
   GthreeTexture *data_texture;
-  cairo_surface_t *data_surface;
 
   PangoLayout *speed_layout;
   PangoLayout *shield_layout;
 
+  GthreeSprite *lap_sprite;
+  GthreeTexture *lap_texture;
+  PangoLayout *lap_layout;
+
+  GthreeSprite *time_sprite;
+  GthreeTexture *time_texture;
+  PangoLayout *time_layout;
+
   float aspect;
+
+  char *lap_text;
+  char *time_text;
 
   GthreeOrthographicCamera *camera;
   GArray *speed_clipping_planes;
@@ -63,6 +109,18 @@ hud_update_sprites (HUD *hud,
   gthree_object_set_scale (GTHREE_OBJECT (hud->data_sprite),
                            graphene_vec3_init (&s,
                                                hud_height * 0.6, hud_height * 0.6, 1.0));
+
+  gthree_object_set_position (GTHREE_OBJECT (hud->lap_sprite),
+                              graphene_vec3_init (&pos, width / 2 - 20, height / 2, 1));
+  gthree_object_set_scale (GTHREE_OBJECT (hud->lap_sprite),
+                           graphene_vec3_init (&s,
+                                               256, 128, 1.0));
+
+  gthree_object_set_position (GTHREE_OBJECT (hud->time_sprite),
+                              graphene_vec3_init (&pos, 0, height / 2, 1));
+  gthree_object_set_scale (GTHREE_OBJECT (hud->time_sprite),
+                           graphene_vec3_init (&s,
+                                               512, 128, 1.0));
 }
 
 static PangoLayout *
@@ -70,7 +128,7 @@ hud_new_pango_layout (HUD *hud,
                       const char *font)
 {
   PangoLayout *layout = pango_layout_new (hud->pango_context);
-  PangoFontDescription *fd = pango_font_description_from_string (font);//"Sans bold 50");
+  PangoFontDescription *fd = pango_font_description_from_string (font);
   pango_layout_set_font_description (layout, fd);
   pango_font_description_free (fd);
   return layout;
@@ -100,6 +158,8 @@ hud_new (ShipControls *controls,
 
   hud->controls = controls;
   hud->pango_context = gtk_widget_create_pango_context (widget);
+  hud->lap_text = g_strdup ("1/3");
+  hud->time_text = g_strdup ("00:00:00");
 
   scene = gthree_scene_new ();
 
@@ -150,10 +210,7 @@ hud_new (ShipControls *controls,
   gthree_object_add_child (GTHREE_OBJECT (scene3), GTHREE_OBJECT (hud->fg_speed_sprite));
 
   // text data for hud
-  hud->data_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 128, 128);
-  hud->data_texture = gthree_texture_new_from_surface (hud->data_surface);
-  gthree_texture_set_flip_y (hud->data_texture, FALSE); // We'll just draw upside down to avoid performance penalty
-
+  hud->data_texture = cairo_texture_new (128, 128);
   hud->data_sprite = hud_sprite_new (hud->data_texture);
   gthree_sprite_set_center (hud->data_sprite, graphene_vec2_init (&v2, 0.5, 0.5));
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (hud->data_sprite));
@@ -165,6 +222,24 @@ hud_new (ShipControls *controls,
   hud->shield_layout = hud_new_pango_layout (hud, "Sans bold 20");
   pango_layout_set_alignment (hud->shield_layout, PANGO_ALIGN_CENTER);
   pango_layout_set_width (hud->shield_layout, 128);
+
+  hud->lap_texture = cairo_texture_new (256, 128);
+  hud->lap_sprite = hud_sprite_new (hud->lap_texture);
+  gthree_sprite_set_center (hud->lap_sprite, graphene_vec2_init (&v2, 1.0, 1.0));
+  gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (hud->lap_sprite));
+
+  hud->lap_layout = hud_new_pango_layout (hud, "Sans bold 60");
+  pango_layout_set_alignment (hud->lap_layout, PANGO_ALIGN_RIGHT);
+  pango_layout_set_width (hud->lap_layout, 256);
+
+  hud->time_texture = cairo_texture_new (512, 128);
+  hud->time_sprite = hud_sprite_new (hud->time_texture);
+  gthree_sprite_set_center (hud->time_sprite, graphene_vec2_init (&v2, 0.5, 1.0));
+  gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (hud->time_sprite));
+
+  hud->time_layout = hud_new_pango_layout (hud, "Sans bold 60");
+  pango_layout_set_alignment (hud->time_layout, PANGO_ALIGN_CENTER);
+  pango_layout_set_width (hud->time_layout, 256);
 
   hud_update_sprites (hud, width, height);
 
@@ -185,6 +260,8 @@ hud_new (ShipControls *controls,
 void
 hud_free (HUD *hud)
 {
+  g_free (hud->time_text);
+  g_free (hud->lap_text);
   g_free (hud);
 }
 
@@ -200,16 +277,7 @@ hud_add_passes (HUD *hud,
 static void
 hud_update_data_surface (HUD *hud)
 {
-  cairo_t *cr = cairo_create (hud->data_surface);
-
-  // Flip y for OpenGL
-  cairo_scale (cr, 1, -1);
-  cairo_translate (cr, 0, -128);
-
-  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
-  cairo_paint (cr);
-
-  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+  cairo_t *cr = cairo_texture_begin_paint (hud->data_texture);
 
   cairo_set_source_rgba (cr, 1, 1, 1, 1);
   cairo_move_to (cr, 64, 20);
@@ -227,7 +295,39 @@ hud_update_data_surface (HUD *hud)
 
   cairo_destroy (cr);
 
-  gthree_texture_set_needs_update (hud->data_texture, TRUE);
+  cairo_texture_end_paint (hud->data_texture);
+}
+
+static void
+hud_update_lap_surface (HUD *hud)
+{
+  cairo_t *cr = cairo_texture_begin_paint (hud->lap_texture);
+
+  cairo_set_source_rgba (cr, 1, 1, 1, 1);
+  cairo_move_to (cr, 256, 0);
+
+  pango_layout_set_text (hud->lap_layout, hud->lap_text, -1);
+  pango_cairo_show_layout (cr, hud->lap_layout);
+
+  cairo_destroy (cr);
+
+  cairo_texture_end_paint (hud->lap_texture);
+}
+
+static void
+hud_update_time_surface (HUD *hud)
+{
+  cairo_t *cr = cairo_texture_begin_paint (hud->time_texture);
+
+  cairo_set_source_rgba (cr, 1, 1, 1, 1);
+  cairo_move_to (cr, 256, 0);
+
+  pango_layout_set_text (hud->time_layout, hud->time_text, -1);
+  pango_cairo_show_layout (cr, hud->time_layout);
+
+  cairo_destroy (cr);
+
+  cairo_texture_end_paint (hud->time_texture);
 }
 
 static void
@@ -279,6 +379,8 @@ hud_update (HUD *hud,
 {
   hud_update_data_surface (hud);
   hud_update_clipping_planes (hud);
+  hud_update_lap_surface (hud);
+  hud_update_time_surface (hud);
 }
 
 void
