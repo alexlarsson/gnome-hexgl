@@ -8,6 +8,7 @@
 #include "shipeffects.h"
 #include "analysismap.h"
 #include "utils.h"
+#include "hud.h"
 #include "shaders.h"
 
 GthreeEffectComposer *composer;
@@ -17,58 +18,9 @@ ShipControls *ship_controls;
 ShipEffects *ship_effects;
 AnalysisMap *height_map;
 AnalysisMap *collision_map;
-GthreeSprite* hud_bg_sprite;
-GthreeSprite* hud_fg_speed_sprite;
-GthreeSprite* hud_fg_shield_sprite;
-GthreeSprite* hud_data_sprite;
-GthreeTexture *hud_data_texture;
-cairo_surface_t *hud_data_surface;
 GthreeUniforms *hex_uniforms;
 
-PangoLayout *hud_speed_layout;
-PangoLayout *hud_shield_layout;
-PangoContext *pango_context;
-
-float hud_aspect;
-
-GthreeOrthographicCamera *hud_camera;
-GArray *speed_clipping_planes;
-GArray *shield_clipping_planes;
-
-static void
-update_hud_sprites (int width,
-                    int height)
-{
-  graphene_vec3_t pos, s;
-  float hud_width, hud_height;
-
-  hud_width = width; // fullscreen width
-  hud_height = hud_width * hud_aspect;
-
-  gthree_object_set_position (GTHREE_OBJECT (hud_bg_sprite),
-                              graphene_vec3_init (&pos, 0, - height / 2, 1));
-  gthree_object_set_scale (GTHREE_OBJECT (hud_bg_sprite),
-                           graphene_vec3_init (&s,
-                                               hud_width, hud_height, 1.0));
-
-  gthree_object_set_position (GTHREE_OBJECT (hud_fg_shield_sprite),
-                              graphene_vec3_init (&pos, 0, - height / 2, 1));
-  gthree_object_set_scale (GTHREE_OBJECT (hud_fg_shield_sprite),
-                           graphene_vec3_init (&s,
-                                               hud_width, hud_height, 1.0));
-
-  gthree_object_set_position (GTHREE_OBJECT (hud_fg_speed_sprite),
-                              graphene_vec3_init (&pos, 0, - height / 2, 1));
-  gthree_object_set_scale (GTHREE_OBJECT (hud_fg_speed_sprite),
-                           graphene_vec3_init (&s,
-                                               hud_width, hud_height, 1.0));
-
-  gthree_object_set_position (GTHREE_OBJECT (hud_data_sprite),
-                              graphene_vec3_init (&pos, 0, - height / 2 + hud_height * 0.6, 1));
-  gthree_object_set_scale (GTHREE_OBJECT (hud_data_sprite),
-                           graphene_vec3_init (&s,
-                                               hud_height * 0.6, hud_height * 0.6, 1.0));
-}
+HUD *hud;
 
 static void
 resize_area (GthreeArea *area,
@@ -78,12 +30,7 @@ resize_area (GthreeArea *area,
 {
   gthree_perspective_camera_set_aspect (camera, (float)width / (float)(height));
 
-  gthree_orthographic_camera_set_left (hud_camera, -width / 2);
-  gthree_orthographic_camera_set_right (hud_camera, width / 2);
-  gthree_orthographic_camera_set_top (hud_camera, height / 2);
-  gthree_orthographic_camera_set_bottom (hud_camera, -height / 2);
-
-  update_hud_sprites (width, height);
+  hud_update_screen_size (hud, width, height);
 
   gthree_uniforms_set_float (hex_uniforms, "size", 512.0 * (width ) / (1633.0 * gtk_widget_get_scale_factor (GTK_WIDGET (area))));
   gthree_uniforms_set_float (hex_uniforms, "rx", width / gtk_widget_get_scale_factor (GTK_WIDGET (area)));
@@ -152,34 +99,7 @@ tick (GtkWidget     *widget,
   ship_controls_update (ship_controls, dt);
   ship_effects_update (ship_effects, dt);
 
-  cairo_t *cr = cairo_create (hud_data_surface);
-
-  // Flip y for OpenGL
-  cairo_scale (cr, 1, -1);
-  cairo_translate (cr, 0, -128);
-
-  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
-  cairo_paint (cr);
-
-  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
-
-  cairo_set_source_rgba (cr, 1, 1, 1, 1);
-  cairo_move_to (cr, 64, 20);
-
-  g_autofree char *speed_text = g_strdup_printf ("%d", ship_controls_get_real_speed (ship_controls, 100));
-  pango_layout_set_text (hud_speed_layout, speed_text, -1);
-  pango_cairo_show_layout (cr, hud_speed_layout);
-
-  cairo_set_source_rgba (cr, 0.7, 0.7, 0.7, 1);
-  cairo_move_to (cr, 64, 85);
-
-  g_autofree char *shield_text = g_strdup_printf ("%d", ship_controls_get_shield (ship_controls, 100));
-  pango_layout_set_text (hud_shield_layout, shield_text, -1);
-  pango_cairo_show_layout (cr, hud_shield_layout);
-
-  cairo_destroy (cr);
-
-  gthree_texture_set_needs_update (hud_data_texture, TRUE);
+  hud_update (hud, dt);
 
   camera_chase_update (camera_chase, dt, ship_controls_get_speed_ratio (ship_controls));
 
@@ -354,48 +274,6 @@ render_area (GtkGLArea    *gl_area,
     gthree_scene_set_override_material (scene, NULL);
   }
 
-
-  {
-    graphene_vec3_t plane_normal;
-    graphene_plane_t plane;
-    int height = gtk_widget_get_allocated_height (GTK_WIDGET (gl_area));
-    int width = gtk_widget_get_allocated_width (GTK_WIDGET (gl_area));
-    graphene_point3d_t p;
-
-    float speed_ratio = ship_controls_get_real_speed_ratio (ship_controls);
-    float speed_factor = speed_ratio * (0.75 - 0.07) + 0.07;
-
-    graphene_vec3_init (&plane_normal, 1, 1, 0);
-    graphene_vec3_normalize (&plane_normal, &plane_normal);
-    graphene_plane_init_from_point (&plane, &plane_normal,
-                                    graphene_point3d_init (&p,
-                                                           -width * speed_factor ,
-                                                           -height + width * hud_aspect / 2,
-                                                           0));
-    g_array_index (speed_clipping_planes, graphene_plane_t, 0) = plane;
-
-    graphene_vec3_init (&plane_normal, -1, 1, 0);
-    graphene_vec3_normalize (&plane_normal, &plane_normal);
-    graphene_plane_init_from_point (&plane, &plane_normal,
-                                    graphene_point3d_init (&p,
-                                                           width * speed_factor ,
-                                                           -height + width * hud_aspect / 2,
-                                                           0));
-    g_array_index (speed_clipping_planes, graphene_plane_t, 1) = plane;
-
-    float shield_ratio = ship_controls_get_shield_ratio (ship_controls);
-    float shield_factor = shield_ratio * (1.54 - 0.47) + 0.47;
-
-    graphene_vec3_init (&plane_normal, 0, -1, 0);
-    graphene_plane_init_from_point (&plane, &plane_normal,
-                                    graphene_point3d_init (&p,
-                                                           0,
-                                                           -height + width * hud_aspect * shield_factor,
-                                                           0));
-    g_array_index (shield_clipping_planes, graphene_plane_t, 0) = plane;
-
-  }
-
   gthree_effect_composer_render (composer, gthree_area_get_renderer (GTHREE_AREA(gl_area)),
                                  0.1);
   return TRUE;
@@ -422,16 +300,8 @@ main (int argc, char *argv[])
   GthreeScene *scene;
   GthreePerspectiveCamera *camera;
   GthreePass *clear_pass, *render_pass, *bloom_pass, *hex_pass;
-  GthreePass *hud_pass, *hud_pass2, *hud_pass3;
-  GthreeScene *hud_scene, *hud_scene2, *hud_scene3;
   GthreeShader *hex_shader;
-  graphene_vec3_t pos;
   GdkRGBA black = {0, 0, 0, 1.0};
-  graphene_vec2_t v2;
-  graphene_vec3_t plane_normal;
-  graphene_plane_t plane;
-  int hud_width;
-  int hud_height;
 
   gtk_init (&argc, &argv);
 
@@ -450,6 +320,10 @@ main (int argc, char *argv[])
   gtk_box_set_spacing (GTK_BOX (hbox), 6);
   gtk_container_add (GTK_CONTAINER (box), hbox);
   gtk_widget_show (hbox);
+
+  ship_controls = ship_controls_new ();
+
+  hud = hud_new (ship_controls, window);
 
   composer = gthree_effect_composer_new  ();
 
@@ -471,104 +345,11 @@ main (int argc, char *argv[])
   gthree_uniforms_set_texture (hex_uniforms, "tHex", hex_texture);
   hex_pass = gthree_shader_pass_new (hex_shader, NULL);
 
-  hud_scene = gthree_scene_new ();
-
-  g_autoptr(GthreeTexture) hud_texture = load_texture ("hud-bg.png");
-  g_autoptr(GthreeTexture) hud_speed_texture = load_texture ("hud-fg-speed.png");
-  g_autoptr(GthreeTexture) hud_shield_texture = load_texture ("hud-fg-shield.png");
-
-  hud_width = gdk_pixbuf_get_width (gthree_texture_get_pixbuf (hud_texture));
-  hud_height = gdk_pixbuf_get_height (gthree_texture_get_pixbuf (hud_texture));
-  hud_aspect = (float) hud_height / hud_width;
-
-  // Just some values to start with, we'll do the right ones in the callback later
-  int width = 100, height = 100;
-
-  hud_bg_sprite = gthree_sprite_new (NULL);
-  gthree_sprite_set_center (hud_bg_sprite,
-                            graphene_vec2_init (&v2, 0.5, 0.0));
-  gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_bg_sprite)), hud_texture);
-  gthree_material_set_depth_test (gthree_sprite_get_material (hud_bg_sprite), FALSE);
-  gthree_object_add_child (GTHREE_OBJECT (hud_scene), GTHREE_OBJECT (hud_bg_sprite));
-
-  hud_camera = gthree_orthographic_camera_new ( -width / 2, width / 2, height / 2, -height / 2, 1, 10);
-  gthree_object_add_child (GTHREE_OBJECT (hud_scene), GTHREE_OBJECT (hud_camera));
-  gthree_object_set_position (GTHREE_OBJECT (hud_camera),
-                              graphene_vec3_init (&pos, 0, 0, 10));
-
-  hud_scene2 = gthree_scene_new ();
-
-  hud_fg_shield_sprite = gthree_sprite_new (NULL);
-  gthree_sprite_set_center (hud_fg_shield_sprite,
-                            graphene_vec2_init (&v2, 0.5, 0.0));
-  gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_fg_shield_sprite)), hud_shield_texture);
-  gthree_material_set_depth_test (gthree_sprite_get_material (hud_fg_shield_sprite), FALSE);
-  gthree_object_add_child (GTHREE_OBJECT (hud_scene2), GTHREE_OBJECT (hud_fg_shield_sprite));
-
-  hud_scene3 = gthree_scene_new ();
-
-  graphene_vec3_init (&plane_normal, 0, 0, 0);
-  graphene_plane_init (&plane, &plane_normal, 0);
-
-  speed_clipping_planes = g_array_new (FALSE, FALSE, sizeof (graphene_plane_t));
-  g_array_append_val (speed_clipping_planes, plane);
-  g_array_append_val (speed_clipping_planes, plane);
-
-  shield_clipping_planes = g_array_new (FALSE, FALSE, sizeof (graphene_plane_t));
-  g_array_append_val (shield_clipping_planes, plane);
-
-  hud_fg_speed_sprite = gthree_sprite_new (NULL);
-  gthree_sprite_set_center (hud_fg_speed_sprite,
-                            graphene_vec2_init (&v2, 0.5, 0.0));
-  gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_fg_speed_sprite)), hud_speed_texture);
-  gthree_material_set_depth_test (gthree_sprite_get_material (hud_fg_speed_sprite), FALSE);
-  gthree_object_add_child (GTHREE_OBJECT (hud_scene3), GTHREE_OBJECT (hud_fg_speed_sprite));
-
-  // text data for hud
-  hud_data_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 128, 128);
-  hud_data_texture = gthree_texture_new_from_surface (hud_data_surface);
-  gthree_texture_set_flip_y (hud_data_texture, FALSE); // We'll just draw upside down to avoid performance penalty
-
-  hud_data_sprite = gthree_sprite_new (NULL);
-  gthree_sprite_set_center (hud_data_sprite, graphene_vec2_init (&v2, 0.5, 0.5));
-  gthree_sprite_material_set_map (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (hud_data_sprite)), hud_data_texture);
-  gthree_material_set_depth_test (gthree_sprite_get_material (hud_data_sprite), FALSE);
-  gthree_object_add_child (GTHREE_OBJECT (hud_scene), GTHREE_OBJECT (hud_data_sprite));
-
-  pango_context = gtk_widget_create_pango_context (window);
-
-  hud_speed_layout = pango_layout_new (pango_context);
-  PangoFontDescription *fd = pango_font_description_from_string ("Sans bold 50");
-  pango_layout_set_font_description (hud_speed_layout, fd);
-  pango_layout_set_alignment (hud_speed_layout, PANGO_ALIGN_CENTER);
-  pango_layout_set_width (hud_speed_layout, 128);
-
-  hud_shield_layout = pango_layout_new (pango_context);
-  fd = pango_font_description_from_string ("Sans bold 20");
-  pango_layout_set_font_description (hud_shield_layout, fd);
-  pango_layout_set_alignment (hud_shield_layout, PANGO_ALIGN_CENTER);
-  pango_layout_set_width (hud_shield_layout, 128);
-
-  update_hud_sprites (width, height);
-
-  hud_pass = gthree_render_pass_new (hud_scene, GTHREE_CAMERA (hud_camera), NULL);
-  gthree_pass_set_clear (hud_pass, FALSE);
-
-  hud_pass2 = gthree_render_pass_new (hud_scene2, GTHREE_CAMERA (hud_camera), NULL);
-  gthree_render_pass_set_clipping_planes (GTHREE_RENDER_PASS (hud_pass2), shield_clipping_planes);
-  gthree_pass_set_clear (hud_pass2, FALSE);
-
-  hud_pass3 = gthree_render_pass_new (hud_scene3, GTHREE_CAMERA (hud_camera), NULL);
-  gthree_render_pass_set_clipping_planes (GTHREE_RENDER_PASS (hud_pass3), speed_clipping_planes);
-  gthree_pass_set_clear (hud_pass3, FALSE);
-
   gthree_effect_composer_add_pass  (composer, clear_pass);
   gthree_effect_composer_add_pass  (composer, render_pass);
   gthree_effect_composer_add_pass  (composer, bloom_pass);
   gthree_effect_composer_add_pass  (composer, hex_pass);
-  gthree_effect_composer_add_pass  (composer, hud_pass);
-  gthree_effect_composer_add_pass  (composer, hud_pass2);
-  gthree_effect_composer_add_pass  (composer, hud_pass3);
+  hud_add_passes (hud, composer);
 
   area = gthree_area_new (scene, GTHREE_CAMERA (camera));
   g_signal_connect (area, "resize", G_CALLBACK (resize_area), camera);
@@ -589,7 +370,6 @@ main (int argc, char *argv[])
   g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window);
   gtk_widget_show (button);
 
-  ship_controls = ship_controls_new ();
 
   init_scene (scene);
   camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
