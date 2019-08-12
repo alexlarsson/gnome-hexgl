@@ -20,6 +20,7 @@ AnalysisMap *height_map;
 AnalysisMap *collision_map;
 GthreeUniforms *hex_uniforms;
 
+HUDMessage *get_ready_message;
 HUD *hud;
 
 static void
@@ -283,6 +284,11 @@ static gboolean
 key_press (GtkWidget	     *widget,
            GdkEventKey	     *event)
 {
+  if (get_ready_message != NULL)
+    {
+      hud_remove_message (hud, get_ready_message);
+      get_ready_message = NULL;
+    }
   return ship_controls_key_press (ship_controls, event);
 }
 
@@ -324,6 +330,8 @@ main (int argc, char *argv[])
   ship_controls = ship_controls_new ();
 
   hud = hud_new (ship_controls, window);
+
+  get_ready_message = hud_show_message (hud, "GET READY");
 
   composer = gthree_effect_composer_new  ();
 

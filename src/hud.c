@@ -118,6 +118,13 @@ text_sprite_set_pos (TextSprite *text,
 }
 
 static void
+text_sprite_set_scale (TextSprite *text,
+                       float scale)
+{
+  text->scale = scale;
+}
+
+static void
 text_sprite_set_pos_offset (TextSprite *text,
                             int dx,
                             int dy)
@@ -180,7 +187,6 @@ static void
 text_sprite_free (TextSprite *text)
 {
   g_object_unref (text->layout);
-
   g_object_unref (text->texture);
 
   gthree_object_destroy (GTHREE_OBJECT (text->sprite));
@@ -188,6 +194,23 @@ text_sprite_free (TextSprite *text)
 
   g_free (text);
 }
+
+
+struct _HUDMessage {
+  TextSprite *text;
+
+  float animation_time;
+  float animation_duration;
+
+  float start_scale;
+  float end_scale;
+  graphene_vec2_t start_pos;
+  graphene_vec2_t end_pos;
+  graphene_vec3_t start_color;
+  graphene_vec3_t end_color;
+
+  gboolean removed;
+};
 
 struct _HUD {
   ShipControls *controls;
@@ -215,9 +238,13 @@ struct _HUD {
   GArray *speed_clipping_planes;
   GArray *shield_clipping_planes;
 
+  GthreeScene *scene;
+
   GthreePass *pass;
   GthreePass *pass2;
   GthreePass *pass3;
+
+  GList *messages;
 };
 
 static void
@@ -292,7 +319,7 @@ hud_new (ShipControls *controls,
   hud->controls = controls;
   hud->pango_context = gtk_widget_create_pango_context (widget);
 
-  scene = gthree_scene_new ();
+  hud->scene = scene = gthree_scene_new ();
 
   // Just some values to start with, we'll do the right ones in the callback later
   int width = 100, height = 100;
@@ -472,14 +499,136 @@ hud_update_clipping_planes (HUD *hud)
   g_array_index (hud->shield_clipping_planes, graphene_plane_t, 0) = plane;
 }
 
+
+HUDMessage *
+hud_show_message (HUD *hud,
+                  const char *text)
+{
+  HUDMessage *message = g_new0 (HUDMessage, 1);
+
+  message->text =
+    text_sprite_new (hud->pango_context,
+                     "Sans bold 100",
+                     text,
+                     0.5,
+                     0.5);
+  gthree_object_add_child (GTHREE_OBJECT (hud->scene), GTHREE_OBJECT (message->text->sprite));
+
+  message->start_scale = 4;
+  message->end_scale = 1;
+
+  message->animation_time = 0;
+  message->animation_duration = 16 * 1;
+
+  graphene_vec2_init (&message->start_pos,
+                      0.0, 0.3);
+  graphene_vec2_init (&message->end_pos,
+                      0.0, 0.0);
+
+  graphene_vec3_init (&message->start_color,
+                      0.2, 0.2, 0.2);
+  graphene_vec3_init (&message->end_color,
+                      1.0, 1.0, 1.0);
+
+  hud->messages = g_list_append (hud->messages, message);
+
+  return message;
+}
+
+void
+hud_remove_message (HUD *hud,
+                    HUDMessage *message)
+{
+  g_assert (g_list_find (hud->messages, message) != NULL);
+  message->removed = TRUE;
+
+  message->animation_time = 0;
+
+  message->start_scale = 1;
+  message->end_scale = 1;
+
+  graphene_vec2_init (&message->start_pos,
+                      0.0, 0.0);
+  graphene_vec2_init (&message->end_pos,
+                      0.0, -0.5);
+
+  graphene_vec3_init (&message->start_color,
+                      1.0, 1.0, 1.0);
+  graphene_vec3_init (&message->end_color,
+                      0.2, 0.2, 0.2);
+}
+
+void
+hud_update_message (HUD *hud,
+                    HUDMessage *message,
+                    float dt)
+{
+  float animation_factor;
+  graphene_vec2_t pos;
+  graphene_vec3_t color;
+
+  message->animation_time += dt;
+  if (message->animation_time < message->animation_duration)
+    animation_factor = message->animation_time / message->animation_duration;
+  else
+    {
+      animation_factor = 1;
+
+      if (message->removed)
+        {
+          hud->messages = g_list_remove (hud->messages, message);
+          text_sprite_free (message->text);
+          g_free (message);
+          return;
+        }
+    }
+
+  text_sprite_set_scale (message->text,
+                         message->start_scale + (message->end_scale - message->start_scale) * animation_factor);
+
+  graphene_vec2_interpolate (&message->start_pos,
+                             &message->end_pos,
+                             animation_factor,
+                             &pos);
+
+  text_sprite_set_pos (message->text,
+                       graphene_vec2_get_x (&pos),
+                       graphene_vec2_get_y (&pos));
+
+  graphene_vec3_interpolate (&message->start_color,
+                             &message->end_color,
+                             animation_factor,
+                             &color);
+
+  GdkRGBA rgba = { graphene_vec3_get_x (&color),
+                   graphene_vec3_get_y (&color),
+                   graphene_vec3_get_z (&color),
+                   1.0 };
+
+  gthree_sprite_material_set_color (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (message->text->sprite)), &rgba);
+
+  text_sprite_update (message->text, hud->screen_width, hud->screen_height);
+}
+
 void
 hud_update (HUD *hud,
             float dt)
 {
+  GList *l, *next;
+
   hud_update_data_surface (hud);
   hud_update_clipping_planes (hud);
+
   text_sprite_update (hud->lap_text, hud->screen_width, hud->screen_height);
   text_sprite_update (hud->time_text, hud->screen_width, hud->screen_height);
+
+  for (l = hud->messages; l != NULL; l = next)
+    {
+      HUDMessage *message = l->data;
+      next = l->next;
+
+      hud_update_message (hud, message, dt);
+    }
 }
 
 void
