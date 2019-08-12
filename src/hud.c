@@ -550,7 +550,7 @@ hud_remove_message (HUD *hud,
   graphene_vec2_init (&message->start_pos,
                       0.0, 0.0);
   graphene_vec2_init (&message->end_pos,
-                      0.0, -0.5);
+                      0.0, -0.1);
 
   graphene_vec3_init (&message->start_color,
                       1.0, 1.0, 1.0);
@@ -645,4 +645,33 @@ hud_update_screen_size (HUD *hud,
   gthree_orthographic_camera_set_bottom (hud->camera, -height / 2);
 
   hud_update_sprites (hud, width, height);
+}
+
+void
+hud_set_lap (HUD *hud,
+             int lap, int max_laps)
+{
+  g_autofree char *s = g_strdup_printf ("%d/%d", lap, max_laps);
+
+  text_sprite_set_text (hud->lap_text, s);
+}
+
+void
+hud_set_time (HUD *hud,
+              gdouble time)
+{
+  if (time < 0)
+    text_sprite_set_text (hud->time_text, "");
+  else
+    {
+      double minutes = floor (time / 60);
+      time -= minutes * 60;
+      double seconds = floor (time);
+      time -= seconds;
+      double rest = time * 100;
+
+      g_autofree char *s = g_strdup_printf ("%.0f'%02.0f''%02.0f",
+                                            minutes, seconds, rest);
+      text_sprite_set_text (hud->time_text, s);
+    }
 }

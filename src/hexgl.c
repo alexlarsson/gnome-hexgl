@@ -10,6 +10,7 @@
 #include "utils.h"
 #include "hud.h"
 #include "shaders.h"
+#include "gameplay.h"
 
 GthreeEffectComposer *composer;
 GthreeObject *the_ship;
@@ -20,8 +21,8 @@ AnalysisMap *height_map;
 AnalysisMap *collision_map;
 GthreeUniforms *hex_uniforms;
 
-HUDMessage *get_ready_message;
 HUD *hud;
+Gameplay *gameplay;
 
 static void
 resize_area (GthreeArea *area,
@@ -100,9 +101,11 @@ tick (GtkWidget     *widget,
   ship_controls_update (ship_controls, dt);
   ship_effects_update (ship_effects, dt);
 
-  hud_update (hud, dt);
-
   camera_chase_update (camera_chase, dt, ship_controls_get_speed_ratio (ship_controls));
+
+  gameplay_update (gameplay, dt);
+
+  hud_update (hud, dt);
 
   gtk_widget_queue_draw (widget);
 
@@ -284,11 +287,8 @@ static gboolean
 key_press (GtkWidget	     *widget,
            GdkEventKey	     *event)
 {
-  if (get_ready_message != NULL)
-    {
-      hud_remove_message (hud, get_ready_message);
-      get_ready_message = NULL;
-    }
+  if (gameplay_key_press (gameplay, event))
+    return TRUE;
   return ship_controls_key_press (ship_controls, event);
 }
 
@@ -296,13 +296,15 @@ static gboolean
 key_release (GtkWidget	     *widget,
              GdkEventKey	     *event)
 {
+  if (gameplay_key_release (gameplay, event))
+    return TRUE;
   return ship_controls_key_release (ship_controls, event);
 }
 
 int
 main (int argc, char *argv[])
 {
-  GtkWidget *window, *box, *hbox, *button, *area;
+  GtkWidget *window, *box, *hbox, *area;
   GthreeScene *scene;
   GthreePerspectiveCamera *camera;
   GthreePass *clear_pass, *render_pass, *bloom_pass, *hex_pass;
@@ -328,10 +330,9 @@ main (int argc, char *argv[])
   gtk_widget_show (hbox);
 
   ship_controls = ship_controls_new ();
-
   hud = hud_new (ship_controls, window);
 
-  get_ready_message = hud_show_message (hud, "GET READY");
+  gameplay = gameplay_new (ship_controls, hud);
 
   composer = gthree_effect_composer_new  ();
 
@@ -372,18 +373,13 @@ main (int argc, char *argv[])
   g_signal_connect (window, "key-press-event", G_CALLBACK (key_press), NULL);
   g_signal_connect (window, "key-release-event", G_CALLBACK (key_release), NULL);
 
-  button = gtk_button_new_with_label ("Quit");
-  gtk_widget_set_hexpand (button, TRUE);
-  gtk_container_add (GTK_CONTAINER (box), button);
-  g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window);
-  gtk_widget_show (button);
-
-
   init_scene (scene);
   camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
 
   ship_controls_control (ship_controls, the_ship);
   ship_effects = ship_effects_new (scene, ship_controls);
+
+  gameplay_start (gameplay);
 
   gtk_widget_show (window);
 

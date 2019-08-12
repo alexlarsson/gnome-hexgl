@@ -8,10 +8,13 @@ void                   ship_controls_set_difficulty       (ShipControls *control
                                                            int           difficulty);
 void                   ship_controls_control              (ShipControls *controls,
                                                            GthreeObject *mesh);
+void                   ship_controls_set_active           (ShipControls *controls,
+                                                           gboolean      active);
 void                   ship_controls_set_height_map       (ShipControls *controls,
                                                            AnalysisMap  *map);
 void                   ship_controls_set_collision_map    (ShipControls *controls,
                                                            AnalysisMap  *map);
+int                    ship_controls_get_check_point      (ShipControls *controls);
 GthreeObject *         ship_controls_get_mesh             (ShipControls *controls);
 GthreeObject *         ship_controls_get_dummy            (ShipControls *controls);
 const graphene_vec3_t *ship_controls_get_current_velocity (ShipControls *controls);
@@ -20,6 +23,9 @@ gboolean               ship_controls_get_collision_right  (ShipControls *control
 void                   ship_controls_free                 (ShipControls *controls);
 void                   ship_controls_update               (ShipControls *controls,
                                                            float         dt);
+void                   ship_controls_reset                (ShipControls *controls,
+                                                           const graphene_vec3_t *position,
+                                                           const graphene_vec3_t *rotation);
 int                    ship_controls_get_real_speed       (ShipControls *controls,
                                                            float         scale);
 float                  ship_controls_get_real_speed_ratio (ShipControls *controls);

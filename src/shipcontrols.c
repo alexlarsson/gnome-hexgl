@@ -57,6 +57,7 @@ struct _ShipControls {
   float gradientTarget;
   float tilt;
   float tiltTarget;
+  int check_point;
 
   gboolean collision_left;
   gboolean collision_right;
@@ -78,7 +79,7 @@ ship_controls_new (void)
 {
   ShipControls *controls = g_new0 (ShipControls, 1);
 
-  controls->active = TRUE;
+  controls->active = FALSE;
 
   controls->airResist = 0.02;
   controls->airDrift = 0.1;
@@ -117,6 +118,7 @@ ship_controls_new (void)
   controls->boost = 0.0;
   controls->roll = 0.0;
   controls->shield = 1.0;
+  controls->check_point = -1;
   graphene_point3d_init (&controls->repulsionForce, 0, 0, 0);
   controls->gradient = 0.0;
   controls->gradientTarget = 0.0;
@@ -128,6 +130,13 @@ ship_controls_new (void)
   ship_controls_set_difficulty (controls, 0);
 
   return controls;
+}
+
+void
+ship_controls_set_active (ShipControls *controls,
+                          gboolean active)
+{
+  controls->active = TRUE;
 }
 
 void
@@ -172,6 +181,12 @@ ship_controls_set_difficulty (ShipControls *controls,
       controls->driftLerp = 0.3;
       controls->angularLerp = 0.4;
     }
+}
+
+int
+ship_controls_get_check_point (ShipControls *controls)
+{
+  return controls->check_point;
 }
 
 gboolean
@@ -242,35 +257,34 @@ ship_controls_is_destroyed (ShipControls *controls)
 
 void
 ship_controls_reset (ShipControls *controls,
-                     graphene_vec3_t position,
-                     graphene_vec3_t rotation)
+                     const graphene_vec3_t *position,
+                     const graphene_vec3_t *rotation)
 {
-#ifdef TODO
-  this.resetPos = position;
-  this.resetRot = rotation;
-  this.movement.set(0,0,0);
-  this.rotation.copy(rotation);
-  this.roll = 0.0;
-  this.drift = 0.0;
-  this.speed = 0.0;
-  this.speedRatio = 0.0;
-  this.boost = 0.0;
-  this.shield = this.maxShield;
-  this.destroyed = false;
+  graphene_quaternion_t quaternion;
 
-  this.dummy.position.copy(position);
-  this.quaternion.set(rotation.x, rotation.y, rotation.z, 1).normalize();
-  this.dummy.quaternion.set(0,0,0,1);
-  this.dummy.quaternion.multiplySelf(this.quaternion);
+  controls->check_point = -1;
+  controls->roll = 0.0;
+  controls->drift = 0.0;
+  controls->speed = 0.0;
+  controls->speedRatio = 0.0;
+  controls->boost = 0.0;
+  controls->shield = controls->maxShield;
+  controls->destroyed = FALSE;
 
-  this.dummy.matrix.setPosition(this.dummy.position);
-  this.dummy.matrix.setRotationFromQuaternion(this.dummy.quaternion);
+  gthree_object_set_position (controls->dummy,
+                              position);
+  graphene_quaternion_init (&quaternion,
+                            graphene_vec3_get_x (rotation),
+                            graphene_vec3_get_y (rotation),
+                            graphene_vec3_get_z (rotation),
+                            1);
+  graphene_quaternion_normalize (&quaternion, &quaternion);
+  gthree_object_set_quaternion (controls->dummy, &quaternion);
+  gthree_object_update_matrix (controls->dummy);
 
-  this.mesh.matrix.identity();
-  this.mesh.applyMatrix(this.dummy.matrix);
-#endif
+  gthree_object_set_matrix (controls->mesh, gthree_object_get_matrix (controls->dummy));
+  gthree_object_update_matrix_world (controls->mesh, TRUE);
 }
-
 
 void
 ship_controls_control (ShipControls *controls,
@@ -281,7 +295,7 @@ ship_controls_control (ShipControls *controls,
 
   gthree_object_set_matrix_auto_update (controls->mesh, FALSE);
   gthree_object_set_position (controls->dummy,
-                                   gthree_object_get_position (mesh));
+                              gthree_object_get_position (mesh));
 }
 
 GthreeObject *
@@ -444,7 +458,7 @@ ship_controls_collision_check (ShipControls *controls,
   graphene_point3d_init_from_vec3 (&pos,
                                    gthree_object_get_position (controls->dummy));
 
-  analysis_map_lookup_rgba_bilinear (controls->collision_map, pos.x, pos.z, &collision);
+  analysis_map_lookup_rgba_nearest (controls->collision_map, pos.x, pos.z, &collision);
 
   if (collision.red < 1.0)
     {
@@ -521,6 +535,10 @@ ship_controls_collision_check (ShipControls *controls,
       controls->speed *= (1-controls->collisionSpeedDecreaseCoef * (1 - collision.red));
       controls->boost = 0;
     }
+
+
+  if (collision.red >= 0.9 && collision.green > 0.9 && collision.blue < 0.8)
+    controls->check_point = (int)floor (collision.blue * 10);
 }
 
 static float
