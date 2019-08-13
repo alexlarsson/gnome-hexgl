@@ -25,6 +25,12 @@ install_data(
   install_dir: desktopdir
 )
 
+appdatadir = join_paths(datadir, 'metainfo')
+install_data(
+  'org.gnome.HexGL.appdata.xml',
+  install_dir: appdatadir
+)
+
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 
