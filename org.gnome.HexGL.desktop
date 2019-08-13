@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=HexGL
+Comment=Gnome port of HexGL game
+# Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
+Keywords=game;
+Exec=gnome-hexgl
+# Translators: Do NOT translate or transliterate this text (this is an icon file name)!
+Icon=org.gnome.HexGL
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=GNOME;GTK;Game;
