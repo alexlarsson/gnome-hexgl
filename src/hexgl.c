@@ -402,6 +402,10 @@ main (int argc, char *argv[])
   gtk_container_add (GTK_CONTAINER (box), label);
   gtk_widget_show (label);
 
+  label = gtk_label_new ("Controls: Turn: left/right, Accelerate: up, Air Brakes: A/D");
+  gtk_container_add (GTK_CONTAINER (box), label);
+  gtk_widget_show (label);
+
   start_button = button = gtk_button_new_with_label ("Start");
   gtk_box_pack_start (GTK_BOX (box), button,
                       TRUE, TRUE, 0);
