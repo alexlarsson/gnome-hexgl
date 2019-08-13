@@ -1,4 +1,5 @@
 #include "shipcontrols.h"
+#include "sounds.h"
 
 #define RAD_TO_DEG(x)          ((x) * (180.f / GRAPHENE_PI))
 
@@ -434,12 +435,12 @@ ship_controls_booster_check (ShipControls *controls,
   if (controls->boost < 0)
     {
       controls->boost = 0.0;
-      //bkcore.Audio.stop('boost');
+      stop_sound ("boost");
     }
 
   if (collision.red >= 0.9 && collision.green < 0.5 && collision.blue < 0.5)
     {
-      //bkcore.Audio.play('boost');
+      play_sound ("boost", FALSE);
       controls->boost = controls->boosterSpeed;
     }
 
@@ -471,7 +472,7 @@ ship_controls_collision_check (ShipControls *controls,
 
   if (collision.red < 1.0)
     {
-      //bkcore.Audio.play('crash');
+      play_sound ("crash", FALSE);
 
       // Shield
       float sr = (float) ship_controls_get_real_speed (controls, 1) / controls->maxSpeed;
@@ -563,9 +564,9 @@ lerp_point (const graphene_point3d_t *a, const graphene_point3d_t *b, float alph
 static void
 ship_controls_destroy (ShipControls *controls)
 {
-  //bkcore.Audio.play('destroyed');
-  //bkcore.Audio.stop('bg');
-  //bkcore.Audio.stop('wind');
+  play_sound ("destroyed", FALSE);
+  stop_sound ("bg");
+  //stop_sound ("wind");
 
   controls->active = FALSE;
   controls->destroyed = TRUE;

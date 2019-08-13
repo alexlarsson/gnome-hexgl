@@ -11,6 +11,7 @@
 #include "hud.h"
 #include "shaders.h"
 #include "gameplay.h"
+#include "sounds.h"
 
 GthreeEffectComposer *composer;
 GthreeObject *the_ship;
@@ -309,6 +310,8 @@ start_clicked (GtkButton  *button)
   gtk_stack_set_visible_child_name (GTK_STACK (the_stack), "game");
 
   gameplay_start (gameplay);
+  play_sound ("bg", TRUE);
+  //play_sound ("wind", TRUE);
 }
 
 static void
@@ -328,6 +331,8 @@ main (int argc, char *argv[])
   GthreeShader *hex_shader;
   GdkRGBA black = {0, 0, 0, 1.0};
   GdkPixbuf *title_pixbuf = load_pixbuf ("title.png");
+
+  init_sounds ();
 
   gtk_init (&argc, &argv);
 
