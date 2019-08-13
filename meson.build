@@ -34,7 +34,7 @@ sources = ['src/hexgl.c', 'src/utils.c', 'src/analysismap.c', 'src/camerachase.c
 
 add_project_arguments(['-DDATADIR="@0@"'.format(join_paths(datadir , 'gnome-hexgl'))], language: 'c')
 
-install_subdir('models', install_dir: datadir, exclude_files: ['ships/feisar/feisar.blend','tracks/cityscape/cityscape.blend'])
+install_subdir('models', install_dir: join_paths(datadir , 'gnome-hexgl'), exclude_files: ['ships/feisar/feisar.blend','tracks/cityscape/cityscape.blend'])
 install_subdir('textures', install_dir: join_paths(datadir , 'gnome-hexgl'))
 install_subdir('sounds', install_dir: join_paths(datadir , 'gnome-hexgl'))
 
