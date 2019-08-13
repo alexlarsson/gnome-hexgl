@@ -13,6 +13,7 @@ struct _ShipControls {
   gboolean active;
   gboolean destroyed;
   gboolean falling;
+  gint64 fall_start_time;
 
   float airResist;
   float airDrift;
@@ -73,6 +74,8 @@ struct _ShipControls {
 
   graphene_vec3_t currentVelocity;
 };
+
+static void ship_controls_fall (ShipControls *controls);
 
 ShipControls *
 ship_controls_new (void)
@@ -503,7 +506,6 @@ ship_controls_collision_check (ShipControls *controls,
                                             controls->speed * controls->repulsionRatio
                                             )
                                      );
-
       if (rCol.red > lCol.red)
         {
           // Repulse right
@@ -524,18 +526,15 @@ ship_controls_collision_check (ShipControls *controls,
           controls->speed = 0;
         }
 
-#if 0
       // DIRTY GAMEOVER
-      if (rCol < 128 && lCol < 128)
+      if (rCol.red < 0.5 && lCol.red < 0.5)
         {
-          var fCol = controls->collisionMap.getPixel(Math.round(pos.x+2), Math.round(pos.z+2)).r;
-          if(fCol < 128)
-            {
-              console.log('GAMEOVER');
-              controls->fall();
-            }
+          GdkRGBA cCol;
+          const graphene_vec3_t *cPos = gthree_object_get_position (controls->dummy);
+          analysis_map_lookup_rgba_bilinear (controls->collision_map, graphene_vec3_get_x (cPos), graphene_vec3_get_z (cPos), &cCol);
+          if (cCol.red < 0.5)
+            ship_controls_fall (controls);
         }
-#endif
 
       controls->speed *= controls->collisionSpeedDecrease;
       controls->speed *= (1-controls->collisionSpeedDecreaseCoef * (1 - collision.red));
@@ -575,6 +574,17 @@ ship_controls_destroy (ShipControls *controls)
   controls->collision_right = FALSE;
 }
 
+static void
+ship_controls_fall (ShipControls *controls)
+{
+  controls->active = FALSE;
+  controls->collision_front = FALSE;
+  controls->collision_left = FALSE;
+  controls->collision_right = FALSE;
+  controls->falling = TRUE;
+  controls->fall_start_time = g_get_monotonic_time ();
+}
+
 void
 ship_controls_update (ShipControls *controls,
                       float dt)
@@ -591,6 +601,9 @@ ship_controls_update (ShipControls *controls,
       graphene_vec3_add (gthree_object_get_position (controls->mesh), &fall_vec, &pos);
 
       gthree_object_set_position (controls->mesh, &pos);
+
+      if ((g_get_monotonic_time () - controls->fall_start_time) > 2 * G_USEC_PER_SEC)
+        controls->destroyed = TRUE;
 
       return;
     }
