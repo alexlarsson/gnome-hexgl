@@ -11,7 +11,7 @@ gthree = dependency('gthree-1.0')
 gsound = dependency('gsound')
 
 prefix = get_option('prefix')
-datadir = join_paths(prefix, get_option('datadir'))
+datadir = join_paths(prefix, get_option('datadir'), 'gnome-hexgl')
 
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
@@ -24,5 +24,6 @@ add_project_arguments(['-DDATADIR="@0@"'.format(datadir)], language: 'c')
 
 install_subdir('models', install_dir: datadir, exclude_files: ['ships/feisar/feisar.blend','tracks/cityscape/cityscape.blend'])
 install_subdir('textures', install_dir: datadir)
+install_subdir('sounds', install_dir: datadir)
 
 executable('gnome-hexgl', sources, dependencies: [gthree, gsound, libm], install: true)

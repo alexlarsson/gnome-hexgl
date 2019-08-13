@@ -1,12 +1,32 @@
 #include "utils.h"
 
+GFile *
+get_datadir (void)
+{
+  const char *path;
+  static GFile *datadir = NULL;
+
+  if (datadir == NULL)
+    {
+      path = g_getenv ("GNOME_HEXGL_DATADIR");
+      if (path == NULL)
+        path = DATADIR;
+
+      datadir = g_file_new_for_path (path);
+    }
+
+  return datadir;
+}
+
 char *
 get_sound_path (const char *name)
 {
+  GFile *datadir;
   g_autoptr(GFile) base = NULL;
   g_autoptr(GFile) file = NULL;
 
-  base = g_file_new_for_path ("../sounds");
+  datadir = get_datadir ();
+  base = g_file_get_child (datadir, "sounds");
   file = g_file_resolve_relative_path (base, name);
   return g_file_get_path (file);
 }
@@ -14,16 +34,13 @@ get_sound_path (const char *name)
 GdkPixbuf *
 load_pixbuf (const char *name)
 {
-  const char *path;
+  GFile *datadir;
   g_autoptr(GFile) base = NULL;
   g_autoptr(GFile) file = NULL;
   g_autoptr(GFileInputStream) in = NULL;
 
-  path = g_getenv ("GNOME_HEXGL_DATADIR");
-  if (path == NULL)
-    path = DATADIR;
-  base = g_file_new_for_path (path);
-  base = g_file_get_child (base, "textures");
+  datadir = get_datadir ();
+  base = g_file_get_child (datadir, "textures");
   file = g_file_resolve_relative_path (base, name);
 
   in = g_file_read (file, NULL, NULL);
