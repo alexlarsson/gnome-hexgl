@@ -1,7 +1,7 @@
 {
-    "app-id" : "org.gnome.Hexgl",
+    "app-id" : "org.gnome.HexGL",
     "runtime" : "org.gnome.Platform",
-    "runtime-version" : "master",
+    "runtime-version" : "3.30",
     "sdk" : "org.gnome.Sdk",
     "command" : "gnome-hexgl",
     "tags" : [
@@ -44,7 +44,7 @@
                 {
                     "type" : "git",
                     "url" : "https://github.com/ebassi/graphene",
-                    "branch" : "master"
+                    "tag" : "1.9.6"
                 }
             ]
         },
