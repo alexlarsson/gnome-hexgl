@@ -50,9 +50,11 @@ init_scene (GthreeScene *scene)
   g_autoptr(GthreeTexture) skybox = NULL;
   GthreeAmbientLight *ambient_light;
   GthreeDirectionalLight *sun;
-  GdkRGBA white =  {1, 1, 1, 1};
-  GdkRGBA grey =  {0.75, 0.75, 0.75, 1};
+  graphene_vec3_t white, grey;
   graphene_point3d_t pos;
+
+  graphene_vec3_init (&white, 1, 1, 1);
+  graphene_vec3_init (&grey, 0.75, 0.75, 0.75);
 
   track = load_model ("tracks/cityscape/cityscape.glb");
   ship = load_model ("ships/feisar/feisar.glb");
@@ -186,9 +188,12 @@ render_area (GtkGLArea    *gl_area,
     g_autoptr(GthreeMeshDepthMaterial) depth_material = NULL;
     g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
     cairo_surface_t *surface;
-    GdkRGBA white   = {1, 1, 1, 1};
-    GdkRGBA black   = {0, 0, 0, 1};
-    GdkRGBA red   = {1, 0, 0, 1};
+    graphene_vec3_t white, black, red;
+
+    graphene_vec3_init (&white, 1, 1, 1);
+    graphene_vec3_init (&black, 0, 0, 0);
+    graphene_vec3_init (&red, 1, 0, 0);
+
 
     gthree_object_update_matrix_world (GTHREE_OBJECT (scene), FALSE);
     gthree_object_get_mesh_extents (GTHREE_OBJECT (scene), &bounding_box);
@@ -327,8 +332,10 @@ main (int argc, char *argv[])
   GthreePerspectiveCamera *camera;
   GthreePass *clear_pass, *render_pass, *bloom_pass, *hex_pass;
   GthreeShader *hex_shader;
-  GdkRGBA black = {0, 0, 0, 1.0};
+  graphene_vec3_t black;
   GdkPixbuf *title_pixbuf = load_pixbuf ("title.png");
+
+  graphene_vec3_init (&black, 0, 0, 0);
 
   init_sounds ();
 

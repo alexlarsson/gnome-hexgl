@@ -1,5 +1,6 @@
 #include "gameplay.h"
 #include "utils.h"
+#include "sounds.h"
 
 struct _Gameplay {
   ShipControls *controls;

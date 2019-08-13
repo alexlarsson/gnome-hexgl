@@ -53,14 +53,14 @@ static const char *hexvignette_fragment_shader =
 static float rx_def = 1024;
 static float ry_def = 768;
 static float size_def = 512;
-static GdkRGBA color_def = { 0.27058823529411763, 0.5411764705882353, 0.6941176470588235, 1.0 };
+static float color_def[3] = { 0.27058823529411763, 0.5411764705882353, 0.6941176470588235 };
 static GthreeUniformsDefinition hexvignette_uniforms_defs[] = {
   {"tDiffuse", GTHREE_UNIFORM_TYPE_TEXTURE, NULL },
   {"tHex", GTHREE_UNIFORM_TYPE_TEXTURE, NULL },
   {"size", GTHREE_UNIFORM_TYPE_FLOAT, &size_def},
   {"rx", GTHREE_UNIFORM_TYPE_FLOAT, &rx_def},
   {"ry", GTHREE_UNIFORM_TYPE_FLOAT, &ry_def},
-  {"color", GTHREE_UNIFORM_TYPE_COLOR, &color_def },
+  {"color", GTHREE_UNIFORM_TYPE_VECTOR3, &color_def },
 };
 static GthreeUniforms *hexvignette_uniforms;
 static GthreeShader *hexvignette_shader;

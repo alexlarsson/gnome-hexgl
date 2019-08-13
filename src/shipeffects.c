@@ -56,7 +56,8 @@ ship_effects_new (GthreeScene *scene,
   gthree_mesh_set_material (effects->booster_mesh, 0, GTHREE_MATERIAL (effects->booster_material));
 
   /* Add booster light */
-  GdkRGBA color = { 0.0, 0.64, 1.0, 1.0 };
+  graphene_vec3_t color;
+  graphene_vec3_init (&color, 0.0, 0.64, 1.0);
 
   effects->booster_light = gthree_point_light_new (&color, 4.0, 60.0);
   gthree_point_light_set_decay (effects->booster_light, 0.5);

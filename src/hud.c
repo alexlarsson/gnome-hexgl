@@ -600,12 +600,7 @@ hud_update_message (HUD *hud,
                              animation_factor,
                              &color);
 
-  GdkRGBA rgba = { graphene_vec3_get_x (&color),
-                   graphene_vec3_get_y (&color),
-                   graphene_vec3_get_z (&color),
-                   1.0 };
-
-  gthree_sprite_material_set_color (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (message->text->sprite)), &rgba);
+  gthree_sprite_material_set_color (GTHREE_SPRITE_MATERIAL (gthree_sprite_get_material (message->text->sprite)), &color);
 
   text_sprite_update (message->text, hud->screen_width, hud->screen_height);
 }
