@@ -1,4 +1,5 @@
 #include "shipcontrols.h"
+#include "sounds.h"
 
 #define RAD_TO_DEG(x)          ((x) * (180.f / GRAPHENE_PI))
 
@@ -13,6 +14,7 @@ struct _ShipControls {
   gboolean active;
   gboolean destroyed;
   gboolean falling;
+  gint64 fall_start_time;
 
   float airResist;
   float airDrift;
@@ -73,6 +75,8 @@ struct _ShipControls {
 
   graphene_vec3_t currentVelocity;
 };
+
+static void ship_controls_fall (ShipControls *controls);
 
 ShipControls *
 ship_controls_new (void)
@@ -136,7 +140,13 @@ void
 ship_controls_set_active (ShipControls *controls,
                           gboolean active)
 {
-  controls->active = TRUE;
+  controls->active = active;
+}
+
+void
+ship_controls_stop (ShipControls *controls)
+{
+  controls->speed = 0;
 }
 
 void
@@ -425,12 +435,12 @@ ship_controls_booster_check (ShipControls *controls,
   if (controls->boost < 0)
     {
       controls->boost = 0.0;
-      //bkcore.Audio.stop('boost');
+      stop_sound ("boost");
     }
 
   if (collision.red >= 0.9 && collision.green < 0.5 && collision.blue < 0.5)
     {
-      //bkcore.Audio.play('boost');
+      play_sound ("boost", FALSE);
       controls->boost = controls->boosterSpeed;
     }
 
@@ -462,7 +472,7 @@ ship_controls_collision_check (ShipControls *controls,
 
   if (collision.red < 1.0)
     {
-      //bkcore.Audio.play('crash');
+      play_sound ("crash", FALSE);
 
       // Shield
       float sr = (float) ship_controls_get_real_speed (controls, 1) / controls->maxSpeed;
@@ -497,7 +507,6 @@ ship_controls_collision_check (ShipControls *controls,
                                             controls->speed * controls->repulsionRatio
                                             )
                                      );
-
       if (rCol.red > lCol.red)
         {
           // Repulse right
@@ -518,18 +527,15 @@ ship_controls_collision_check (ShipControls *controls,
           controls->speed = 0;
         }
 
-#if 0
       // DIRTY GAMEOVER
-      if (rCol < 128 && lCol < 128)
+      if (rCol.red < 0.5 && lCol.red < 0.5)
         {
-          var fCol = controls->collisionMap.getPixel(Math.round(pos.x+2), Math.round(pos.z+2)).r;
-          if(fCol < 128)
-            {
-              console.log('GAMEOVER');
-              controls->fall();
-            }
+          GdkRGBA cCol;
+          const graphene_vec3_t *cPos = gthree_object_get_position (controls->dummy);
+          analysis_map_lookup_rgba_bilinear (controls->collision_map, graphene_vec3_get_x (cPos), graphene_vec3_get_z (cPos), &cCol);
+          if (cCol.red < 0.5)
+            ship_controls_fall (controls);
         }
-#endif
 
       controls->speed *= controls->collisionSpeedDecrease;
       controls->speed *= (1-controls->collisionSpeedDecreaseCoef * (1 - collision.red));
@@ -558,15 +564,26 @@ lerp_point (const graphene_point3d_t *a, const graphene_point3d_t *b, float alph
 static void
 ship_controls_destroy (ShipControls *controls)
 {
-  //bkcore.Audio.play('destroyed');
-  //bkcore.Audio.stop('bg');
-  //bkcore.Audio.stop('wind');
+  play_sound ("destroyed", FALSE);
+  stop_sound ("bg");
+  //stop_sound ("wind");
 
   controls->active = FALSE;
   controls->destroyed = TRUE;
   controls->collision_front = FALSE;
   controls->collision_left = FALSE;
   controls->collision_right = FALSE;
+}
+
+static void
+ship_controls_fall (ShipControls *controls)
+{
+  controls->active = FALSE;
+  controls->collision_front = FALSE;
+  controls->collision_left = FALSE;
+  controls->collision_right = FALSE;
+  controls->falling = TRUE;
+  controls->fall_start_time = g_get_monotonic_time ();
 }
 
 void
@@ -585,6 +602,9 @@ ship_controls_update (ShipControls *controls,
       graphene_vec3_add (gthree_object_get_position (controls->mesh), &fall_vec, &pos);
 
       gthree_object_set_position (controls->mesh, &pos);
+
+      if ((g_get_monotonic_time () - controls->fall_start_time) > 2 * G_USEC_PER_SEC)
+        controls->destroyed = TRUE;
 
       return;
     }

@@ -8,6 +8,7 @@ void                   ship_controls_set_difficulty       (ShipControls *control
                                                            int           difficulty);
 void                   ship_controls_control              (ShipControls *controls,
                                                            GthreeObject *mesh);
+void                   ship_controls_stop                 (ShipControls *controls);
 void                   ship_controls_set_active           (ShipControls *controls,
                                                            gboolean      active);
 void                   ship_controls_set_height_map       (ShipControls *controls,

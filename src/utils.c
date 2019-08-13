@@ -1,5 +1,16 @@
 #include "utils.h"
 
+char *
+get_sound_path (const char *name)
+{
+  g_autoptr(GFile) base = NULL;
+  g_autoptr(GFile) file = NULL;
+
+  base = g_file_new_for_path ("../sounds");
+  file = g_file_resolve_relative_path (base, name);
+  return g_file_get_path (file);
+}
+
 GdkPixbuf *
 load_pixbuf (const char *name)
 {
