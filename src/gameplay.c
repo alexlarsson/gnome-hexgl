@@ -85,6 +85,9 @@ gameplay_start (Gameplay *gameplay)
 
   gameplay->message = hud_show_message (gameplay->hud, "GET READY");
 
+  play_sound ("bg", TRUE);
+  //play_sound ("wind", TRUE);
+
   hud_set_lap (gameplay->hud, gameplay->lap, gameplay->max_laps);
   hud_set_time (gameplay->hud, -1.0);
   g_timer_start (gameplay->timer);

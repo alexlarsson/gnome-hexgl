@@ -310,8 +310,6 @@ start_clicked (GtkButton  *button)
   gtk_stack_set_visible_child_name (GTK_STACK (the_stack), "game");
 
   gameplay_start (gameplay);
-  play_sound ("bg", TRUE);
-  //play_sound ("wind", TRUE);
 }
 
 static void
