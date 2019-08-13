@@ -17,6 +17,11 @@
     <kudo>HiDpiIcon</kudo>
     <kudo>ModernToolkit</kudo>
   </kudos>
+  <releases>
+    <release version="0.1.1" date="2019-08-13"/>
+  </releases>
+  <content_rating type="oars-1.1">
+  </content_rating>
   <screenshots>
     <screenshot type="default">
       <image>https://people.gnome.org/~alexl/gnome-hexgl-1.png</image>
