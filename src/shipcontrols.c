@@ -533,7 +533,7 @@ ship_controls_collision_check (ShipControls *controls,
           GdkRGBA cCol;
           const graphene_vec3_t *cPos = gthree_object_get_position (controls->dummy);
           analysis_map_lookup_rgba_bilinear (controls->collision_map, graphene_vec3_get_x (cPos), graphene_vec3_get_z (cPos), &cCol);
-          if (cCol.red < 0.5)
+          if (cCol.red < 0.1)
             ship_controls_fall (controls);
         }
 
