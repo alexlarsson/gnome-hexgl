@@ -14,11 +14,16 @@ get_sound_path (const char *name)
 GdkPixbuf *
 load_pixbuf (const char *name)
 {
+  const char *path;
   g_autoptr(GFile) base = NULL;
   g_autoptr(GFile) file = NULL;
   g_autoptr(GFileInputStream) in = NULL;
 
-  base = g_file_new_for_path ("../textures");
+  path = g_getenv ("GNOME_HEXGL_DATADIR");
+  if (path == NULL)
+    path = DATADIR;
+  base = g_file_new_for_path (path);
+  base = g_file_get_child (base, "textures");
   file = g_file_resolve_relative_path (base, name);
 
   in = g_file_read (file, NULL, NULL);
@@ -70,13 +75,18 @@ GthreeObject *
 load_model (const char *name)
 {
   GError *error = NULL;
+  const char *path;
   g_autoptr(GFile) base = NULL;
   g_autoptr(GFile) file = NULL;
   g_autoptr(GFile) parent = NULL;
   g_autoptr(GBytes) bytes = NULL;
   g_autoptr(GthreeLoader) loader = NULL;
 
-  base = g_file_new_for_path ("../models");
+  path = g_getenv ("GNOME_HEXGL_DATADIR");
+  if (path == NULL)
+    path = DATADIR;
+  base = g_file_new_for_path (path);
+  base = g_file_get_child (base, "models");
   file = g_file_resolve_relative_path (base, name);
   parent = g_file_get_parent (file);
   bytes = g_file_load_bytes (file, NULL, NULL, &error);
