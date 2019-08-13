@@ -13,7 +13,7 @@ gsound = dependency('gsound')
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
 
-icondir = join_paths(datadir, 'icons', 'hicolor', '256', 'apps')
+icondir = join_paths(datadir, 'icons', 'hicolor', '256x256', 'apps')
 install_data(
   'org.gnome.HexGL.png',
   install_dir: icondir
