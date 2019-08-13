@@ -131,7 +131,7 @@ add_name_to_layer (GthreeObject *top,
                    const char *name,
                    guint layer)
 {
-  g_autoptr(GList) objects;
+  g_autoptr(GList) objects = NULL;
   GList *l;
 
   objects = gthree_object_find_by_name (top, name);
@@ -158,7 +158,7 @@ static void
 disable_vertex_colors (GthreeObject *top,
                        const char *name)
 {
-  g_autoptr(GList) objects;
+  g_autoptr(GList) objects = NULL;
   GList *l;
 
   objects = gthree_object_find_by_name (top, name);
