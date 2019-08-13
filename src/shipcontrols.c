@@ -136,7 +136,13 @@ void
 ship_controls_set_active (ShipControls *controls,
                           gboolean active)
 {
-  controls->active = TRUE;
+  controls->active = active;
+}
+
+void
+ship_controls_stop (ShipControls *controls)
+{
+  controls->speed = 0;
 }
 
 void

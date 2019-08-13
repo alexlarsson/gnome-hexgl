@@ -1,10 +1,5 @@
 #include "camerachase.h"
 
-enum {
-      MODE_CHASE,
-      MODE_ORBIT,
-};
-
 struct _CameraChase {
   GthreeCamera *camera;
   GthreeObject *target;
@@ -109,9 +104,9 @@ camera_chase_update (CameraChase *chase,
 
       graphene_vec3_add (gthree_object_get_position (chase->target),
                          graphene_vec3_init (&dir,
-                                             cosf (chase->time * .008) * chase->orbit_offset,
+                                             sinf (chase->time * .008) * chase->orbit_offset,
                                              chase->y_offset / 2,
-                                             sinf (chase->time * .008) * chase->orbit_offset),
+                                             cosf (chase->time * .008) * chase->orbit_offset),
                          &target);
 
       gthree_object_set_position_point3d (GTHREE_OBJECT (chase->camera),
@@ -123,4 +118,11 @@ camera_chase_update (CameraChase *chase,
       gthree_object_look_at (GTHREE_OBJECT (chase->camera),
                              graphene_point3d_init_from_vec3 (&pos, gthree_object_get_position (chase->target)));
     }
+}
+
+void
+camera_chase_set_mode (CameraChase *chase,
+                       int mode)
+{
+  chase->mode = mode;
 }

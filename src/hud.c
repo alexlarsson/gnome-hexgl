@@ -394,7 +394,7 @@ hud_new (ShipControls *controls,
   hud->time_text =
     text_sprite_new (hud->pango_context,
                      "Sans bold 60",
-                     "XX:XX:XX",
+                     "99'99''99",
                      0.5,
                      0.0);
   text_sprite_set_pos (hud->time_text, 0.0, 0.5);
@@ -668,7 +668,7 @@ hud_set_time (HUD *hud,
       time -= minutes * 60;
       double seconds = floor (time);
       time -= seconds;
-      double rest = time * 100;
+      double rest = floor (time * 100);
 
       g_autofree char *s = g_strdup_printf ("%.0f'%02.0f''%02.0f",
                                             minutes, seconds, rest);

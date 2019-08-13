@@ -332,15 +332,23 @@ main (int argc, char *argv[])
   ship_controls = ship_controls_new ();
   hud = hud_new (ship_controls, window);
 
-  gameplay = gameplay_new (ship_controls, hud);
+  scene = gthree_scene_new ();
+  init_scene (scene);
+
+  camera = gthree_perspective_camera_new (70, 1, 1, 6000);
+  gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (camera));
+
+  camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
+
+  ship_controls_control (ship_controls, the_ship);
+
+  ship_effects = ship_effects_new (scene, ship_controls);
+
+  gameplay = gameplay_new (ship_controls, hud, camera_chase);
 
   composer = gthree_effect_composer_new  ();
 
   clear_pass = gthree_clear_pass_new (&black);
-
-  scene = gthree_scene_new ();
-  camera = gthree_perspective_camera_new (70, 1, 1, 6000);
-  gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (camera));
 
   render_pass = gthree_render_pass_new (scene, GTHREE_CAMERA (camera), NULL);
   gthree_pass_set_clear (render_pass, FALSE);
@@ -372,12 +380,6 @@ main (int argc, char *argv[])
   gtk_widget_add_tick_callback (GTK_WIDGET (area), tick, area, NULL);
   g_signal_connect (window, "key-press-event", G_CALLBACK (key_press), NULL);
   g_signal_connect (window, "key-release-event", G_CALLBACK (key_release), NULL);
-
-  init_scene (scene);
-  camera_chase = camera_chase_new (GTHREE_CAMERA (camera), the_ship, 8, 10, 10);
-
-  ship_controls_control (ship_controls, the_ship);
-  ship_effects = ship_effects_new (scene, ship_controls);
 
   gameplay_start (gameplay);
 
