@@ -6,6 +6,7 @@ struct _Gameplay {
   CameraChase *chase;
   HUD *hud;
   GTimer *timer;
+  GCallback finished_cb;
 
   gboolean active;
   int result;
@@ -30,7 +31,8 @@ enum {
 Gameplay *
 gameplay_new (ShipControls *controls,
               HUD *hud,
-              CameraChase *chase)
+              CameraChase *chase,
+              GCallback finished_cb)
 {
   Gameplay *gameplay = g_new0 (Gameplay, 1);
 
@@ -39,6 +41,7 @@ gameplay_new (ShipControls *controls,
   gameplay->hud = hud;
   gameplay->chase = chase;
   gameplay->timer = g_timer_new ();
+  gameplay->finished_cb = finished_cb;
 
   return gameplay;
 }
@@ -223,8 +226,7 @@ gameplay_update (Gameplay *gameplay,
       if (elapsed > 2)
         {
           gameplay->active = FALSE;
-          g_print ("onFinish\n");
-          //TODO: this.onFinish.call(this);
+          gameplay->finished_cb ();
         }
       break;
 
@@ -238,7 +240,8 @@ gameplay_key_press (Gameplay *gameplay,
   switch (event->keyval)
     {
     case GDK_KEY_Escape:
-      gameplay_start (gameplay);
+      if (gameplay->active)
+        gameplay_start (gameplay);
       break;
     }
   return FALSE;

@@ -7,7 +7,8 @@ typedef struct _Gameplay Gameplay;
 
 Gameplay *gameplay_new         (ShipControls *controls,
                                 HUD          *hud,
-                                CameraChase *chase);
+                                CameraChase *chase,
+                                GCallback     finished_cb);
 void      gameplay_free        (Gameplay     *gameplay);
 void      gameplay_update      (Gameplay     *gameplay,
                                 float         dt);

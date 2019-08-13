@@ -21,6 +21,8 @@ AnalysisMap *height_map;
 AnalysisMap *collision_map;
 GthreeUniforms *hex_uniforms;
 
+GtkWidget *the_stack;
+GtkWidget *start_button;
 HUD *hud;
 Gameplay *gameplay;
 
@@ -301,15 +303,31 @@ key_release (GtkWidget	     *widget,
   return ship_controls_key_release (ship_controls, event);
 }
 
+static void
+start_clicked (GtkButton  *button)
+{
+  gtk_stack_set_visible_child_name (GTK_STACK (the_stack), "game");
+
+  gameplay_start (gameplay);
+}
+
+static void
+game_finished (void)
+{
+  gtk_stack_set_visible_child_name (GTK_STACK (the_stack), "menu");
+  gtk_widget_grab_focus (start_button);
+}
+
 int
 main (int argc, char *argv[])
 {
-  GtkWidget *window, *box, *hbox, *area;
+  GtkWidget *window, *box, *label, *button, *area, *stack, *logo;
   GthreeScene *scene;
   GthreePerspectiveCamera *camera;
   GthreePass *clear_pass, *render_pass, *bloom_pass, *hex_pass;
   GthreeShader *hex_shader;
   GdkRGBA black = {0, 0, 0, 1.0};
+  GdkPixbuf *title_pixbuf = load_pixbuf ("title.png");
 
   gtk_init (&argc, &argv);
 
@@ -319,15 +337,7 @@ main (int argc, char *argv[])
   gtk_container_set_border_width (GTK_CONTAINER (window), 12);
   g_signal_connect (window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
 
-  box = gtk_box_new (GTK_ORIENTATION_VERTICAL, FALSE);
-  gtk_box_set_spacing (GTK_BOX (box), 6);
-  gtk_container_add (GTK_CONTAINER (window), box);
-  gtk_widget_show (box);
-
-  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, FALSE);
-  gtk_box_set_spacing (GTK_BOX (hbox), 6);
-  gtk_container_add (GTK_CONTAINER (box), hbox);
-  gtk_widget_show (hbox);
+  /* Set up game */
 
   ship_controls = ship_controls_new ();
   hud = hud_new (ship_controls, window);
@@ -344,7 +354,7 @@ main (int argc, char *argv[])
 
   ship_effects = ship_effects_new (scene, ship_controls);
 
-  gameplay = gameplay_new (ship_controls, hud, camera_chase);
+  gameplay = gameplay_new (ship_controls, hud, camera_chase, game_finished);
 
   composer = gthree_effect_composer_new  ();
 
@@ -368,20 +378,45 @@ main (int argc, char *argv[])
   gthree_effect_composer_add_pass  (composer, hex_pass);
   hud_add_passes (hud, composer);
 
+  /* Set up ui */
+
+  the_stack = stack = gtk_stack_new ();
+  gtk_container_add (GTK_CONTAINER (window), stack);
+  gtk_widget_show (stack);
+
+  box = gtk_box_new (GTK_ORIENTATION_VERTICAL, FALSE);
+  gtk_box_set_spacing (GTK_BOX (box), 6);
+  gtk_stack_add_named (GTK_STACK (stack), box, "menu");
+  gtk_widget_show (box);
+
+  logo = gtk_image_new_from_pixbuf (title_pixbuf);
+  gtk_container_add (GTK_CONTAINER (box), logo);
+  gtk_widget_show (logo);
+
+  label = gtk_label_new ("Gnome port by Alexander Larsson");
+  gtk_container_add (GTK_CONTAINER (box), label);
+  gtk_widget_show (label);
+
+  start_button = button = gtk_button_new_with_label ("Start");
+  gtk_box_pack_start (GTK_BOX (box), button,
+                      TRUE, TRUE, 0);
+  gtk_widget_show (button);
+  gtk_widget_set_valign (button, GTK_ALIGN_CENTER);
+  g_signal_connect (button, "clicked", G_CALLBACK (start_clicked), NULL);
+
   area = gthree_area_new (scene, GTHREE_CAMERA (camera));
   g_signal_connect (area, "resize", G_CALLBACK (resize_area), camera);
   g_signal_connect (area, "render", G_CALLBACK (render_area), NULL);
   gtk_widget_grab_focus (area);
   gtk_widget_set_hexpand (area, TRUE);
   gtk_widget_set_vexpand (area, TRUE);
-  gtk_container_add (GTK_CONTAINER (hbox), area);
+  gtk_stack_add_named (GTK_STACK (stack), area, "game");
   gtk_widget_show (area);
 
   gtk_widget_add_tick_callback (GTK_WIDGET (area), tick, area, NULL);
+
   g_signal_connect (window, "key-press-event", G_CALLBACK (key_press), NULL);
   g_signal_connect (window, "key-release-event", G_CALLBACK (key_release), NULL);
-
-  gameplay_start (gameplay);
 
   gtk_widget_show (window);
 
