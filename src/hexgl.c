@@ -137,6 +137,7 @@ tick (GtkWidget     *widget,
   float delta_time_sec = 0;
   gint64 frame_time_i;
   float dt;
+  graphene_vec3_t col;
 
   frame_time_i = gdk_frame_clock_get_frame_time (frame_clock);
   if (last_frame_time_i != 0)
@@ -153,6 +154,14 @@ tick (GtkWidget     *widget,
   gameplay_update (gameplay, dt);
 
   hud_update (hud, dt);
+
+  if (ship_controls_get_shield_ratio (ship_controls) < 0.2)
+    gthree_uniforms_set_vec3 (hex_uniforms, "color", graphene_vec3_init (&col, 0.6, 0.1255, 0.1255));
+  else
+    gthree_uniforms_set_vec3 (hex_uniforms, "color", graphene_vec3_init (&col,
+                                                                         0.27059,
+                                                                         0.54118,
+                                                                         0.694118));
 
   gtk_widget_queue_draw (widget);
 
