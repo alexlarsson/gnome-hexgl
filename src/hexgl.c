@@ -220,126 +220,123 @@ disable_vertex_colors (GthreeObject *top,
     }
 }
 
+static void
+realize_area (GtkWidget *widget)
+{
+  GthreeRenderer *renderer = gthree_area_get_renderer (GTHREE_AREA (widget));
+  GthreeScene *scene = gthree_area_get_scene (GTHREE_AREA (widget));
+  graphene_box_t bounding_box;
+  graphene_point3d_t min, max;
+  graphene_point3d_t pos;
+  graphene_euler_t e;
+  GthreeOrthographicCamera *o_camera;
+  g_autoptr(GthreeRenderTarget) render_target = NULL;
+  g_autoptr(GthreeMeshDepthMaterial) depth_material = NULL;
+  g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
+  cairo_surface_t *surface;
+  graphene_vec3_t white, black, red;
+
+  gthree_renderer_set_shadow_map_enabled (renderer, TRUE);
+  gthree_renderer_set_shadow_map_auto_update (renderer, FALSE);
+  gthree_renderer_set_shadow_map_needs_update (renderer, TRUE);
+
+  graphene_vec3_init (&white, 1, 1, 1);
+  graphene_vec3_init (&black, 0, 0, 0);
+  graphene_vec3_init (&red, 1, 0, 0);
+
+  gthree_object_update_matrix_world (GTHREE_OBJECT (scene), FALSE);
+  gthree_object_get_mesh_extents (GTHREE_OBJECT (scene), &bounding_box);
+
+  graphene_box_get_min (&bounding_box, &min);
+  graphene_box_get_max (&bounding_box, &max);
+
+  o_camera = gthree_orthographic_camera_new (min.x, max.x,
+                                             -min.z, -max.z,
+                                             0, max.y - min.y);
+  gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (o_camera));
+
+  gthree_object_set_position_point3d (GTHREE_OBJECT (o_camera),
+                                      graphene_point3d_init (&pos, 0, max.y, 0));
+  gthree_object_set_rotation (GTHREE_OBJECT (o_camera),
+                              graphene_euler_init (&e, -90, 0, 0));
+
+  depth_material = gthree_mesh_depth_material_new ();
+  gthree_mesh_depth_material_set_depth_packing_format (depth_material,
+                                                       GTHREE_DEPTH_PACKING_FORMAT_RGBA);
+  gthree_material_set_blend_mode (GTHREE_MATERIAL (depth_material),
+                                  GTHREE_BLEND_NO,
+                                  GL_FUNC_ADD,
+                                  GL_SRC_ALPHA,
+                                  GL_ONE_MINUS_SRC_ALPHA);
+
+  gthree_renderer_set_clear_color (renderer, &white);
+
+  render_target = gthree_render_target_new (2048, 2048);
+  gthree_render_target_set_stencil_buffer (render_target, FALSE);
+
+  gthree_scene_set_override_material (scene, GTHREE_MATERIAL (depth_material));
+  gthree_renderer_set_render_target (renderer, render_target, 0, 0);
+
+  add_name_to_layer (GTHREE_OBJECT (scene), "tracks", 2);
+  // Don't use vertex colors for the tracks object, as its used for collision info
+  disable_vertex_colors (GTHREE_OBJECT (scene), "tracks");
+  add_name_to_layer (GTHREE_OBJECT (scene), "bonus-base", 3);
+
+  gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
+  gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
+
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                        gthree_render_target_get_width (render_target),
+                                        gthree_render_target_get_height (render_target));
+  gthree_render_target_download (render_target,
+                                 cairo_image_surface_get_data (surface),
+                                 cairo_image_surface_get_stride (surface));
+  //cairo_surface_write_to_png (surface, "analysis-height.png");
+
+  height_map = analysis_map_new (surface, &bounding_box);
+  ship_controls_set_height_map (ship_controls, height_map);
+  cairo_surface_destroy (surface);
+
+  track_material = gthree_mesh_basic_material_new ();
+  // We use white vertex color to mark the ridable part of the track
+  gthree_material_set_vertex_colors (GTHREE_MATERIAL (track_material), TRUE);
+
+  gthree_scene_set_override_material (scene, GTHREE_MATERIAL (track_material));
+
+  gthree_renderer_set_clear_color (renderer, &black);
+
+  gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
+  gthree_mesh_basic_material_set_color (track_material, &white);
+  gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
+
+  gthree_renderer_set_autoclear (renderer, FALSE);
+
+  gthree_object_set_layer (GTHREE_OBJECT (o_camera), 3);
+  gthree_material_set_vertex_colors (GTHREE_MATERIAL (track_material), FALSE);
+  gthree_mesh_basic_material_set_color (track_material, &red);
+  gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
+
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                        gthree_render_target_get_width (render_target),
+                                        gthree_render_target_get_height (render_target));
+  gthree_render_target_download (render_target,
+                                 cairo_image_surface_get_data (surface),
+                                 cairo_image_surface_get_stride (surface));
+  //cairo_surface_write_to_png (surface, "analysis-collision.png");
+
+  collision_map = analysis_map_new (surface, &bounding_box);
+  ship_controls_set_collision_map (ship_controls, collision_map);
+  cairo_surface_destroy (surface);
+
+  gthree_renderer_set_autoclear (renderer, TRUE);
+  gthree_renderer_set_render_target (renderer, NULL, 0, 0);
+  gthree_scene_set_override_material (scene, NULL);
+}
+
 static gboolean
 render_area (GtkGLArea    *gl_area,
              GdkGLContext *context)
 {
-  GthreeRenderer *renderer = gthree_area_get_renderer (GTHREE_AREA(gl_area));
-  GthreeScene *scene = gthree_area_get_scene (GTHREE_AREA(gl_area));
-
-  if (height_map == NULL)
-    {
-    graphene_box_t bounding_box;
-    graphene_point3d_t min, max;
-    graphene_point3d_t pos;
-    graphene_euler_t e;
-    GthreeOrthographicCamera *o_camera;
-    g_autoptr(GthreeRenderTarget) render_target = NULL;
-    g_autoptr(GthreeMeshDepthMaterial) depth_material = NULL;
-    g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
-    cairo_surface_t *surface;
-    graphene_vec3_t white, black, red;
-
-    gthree_renderer_set_shadow_map_enabled (renderer, TRUE);
-    gthree_renderer_set_shadow_map_auto_update (renderer, FALSE);
-    gthree_renderer_set_shadow_map_needs_update (renderer, TRUE);
-
-    graphene_vec3_init (&white, 1, 1, 1);
-    graphene_vec3_init (&black, 0, 0, 0);
-    graphene_vec3_init (&red, 1, 0, 0);
-
-
-    gthree_object_update_matrix_world (GTHREE_OBJECT (scene), FALSE);
-    gthree_object_get_mesh_extents (GTHREE_OBJECT (scene), &bounding_box);
-
-    graphene_box_get_min (&bounding_box, &min);
-    graphene_box_get_max (&bounding_box, &max);
-
-    o_camera = gthree_orthographic_camera_new (min.x, max.x,
-                                               -min.z, -max.z,
-                                               0, max.y - min.y);
-    gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (o_camera));
-
-    gthree_object_set_position_point3d (GTHREE_OBJECT (o_camera),
-                                graphene_point3d_init (&pos, 0, max.y, 0));
-    gthree_object_set_rotation (GTHREE_OBJECT (o_camera),
-                                graphene_euler_init (&e, -90, 0, 0));
-
-    depth_material = gthree_mesh_depth_material_new ();
-    gthree_mesh_depth_material_set_depth_packing_format (depth_material,
-                                                         GTHREE_DEPTH_PACKING_FORMAT_RGBA);
-    gthree_material_set_blend_mode (GTHREE_MATERIAL (depth_material),
-                                    GTHREE_BLEND_NO,
-                                    GL_FUNC_ADD,
-                                    GL_SRC_ALPHA,
-                                    GL_ONE_MINUS_SRC_ALPHA);
-
-    gthree_renderer_set_clear_color (renderer, &white);
-
-    render_target = gthree_render_target_new (2048, 2048);
-    gthree_render_target_set_stencil_buffer (render_target, FALSE);
-
-    gthree_scene_set_override_material (scene, GTHREE_MATERIAL (depth_material));
-    gthree_renderer_set_render_target (renderer, render_target, 0, 0);
-
-    add_name_to_layer (GTHREE_OBJECT (scene), "tracks", 2);
-    // Don't use vertex colors for the tracks object, as its used for collision info
-    disable_vertex_colors (GTHREE_OBJECT (scene), "tracks");
-    add_name_to_layer (GTHREE_OBJECT (scene), "bonus-base", 3);
-
-    gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
-    gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
-
-    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-                                          gthree_render_target_get_width (render_target),
-                                          gthree_render_target_get_height (render_target));
-    gthree_render_target_download (render_target,
-                                   cairo_image_surface_get_data (surface),
-                                   cairo_image_surface_get_stride (surface));
-
-    //cairo_surface_write_to_png (surface, "analysis-height.png");
-
-    height_map = analysis_map_new (surface, &bounding_box);
-    ship_controls_set_height_map (ship_controls, height_map);
-    cairo_surface_destroy (surface);
-
-    track_material = gthree_mesh_basic_material_new ();
-    // We use white vertex color to mark the ridable part of the track
-    gthree_material_set_vertex_colors (GTHREE_MATERIAL (track_material), TRUE);
-
-    gthree_scene_set_override_material (scene, GTHREE_MATERIAL (track_material));
-
-    gthree_renderer_set_clear_color (renderer, &black);
-
-    gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
-    gthree_mesh_basic_material_set_color (track_material, &white);
-    gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
-
-    gthree_renderer_set_autoclear (renderer, FALSE);
-
-    gthree_object_set_layer (GTHREE_OBJECT (o_camera), 3);
-    gthree_material_set_vertex_colors (GTHREE_MATERIAL (track_material), FALSE);
-    gthree_mesh_basic_material_set_color (track_material, &red);
-    gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
-
-    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-                                          gthree_render_target_get_width (render_target),
-                                          gthree_render_target_get_height (render_target));
-    gthree_render_target_download (render_target,
-                                   cairo_image_surface_get_data (surface),
-                                   cairo_image_surface_get_stride (surface));
-
-    //cairo_surface_write_to_png (surface, "analysis-collision.png");
-
-    collision_map = analysis_map_new (surface, &bounding_box);
-    ship_controls_set_collision_map (ship_controls, collision_map);
-    cairo_surface_destroy (surface);
-
-    gthree_renderer_set_autoclear (renderer, TRUE);
-    gthree_renderer_set_render_target (renderer, NULL, 0, 0);
-    gthree_scene_set_override_material (scene, NULL);
-  }
-
   gthree_effect_composer_render (composer, gthree_area_get_renderer (GTHREE_AREA(gl_area)),
                                  0.1);
   return TRUE;
@@ -475,6 +472,7 @@ main (int argc, char *argv[])
   area = gthree_area_new (scene, GTHREE_CAMERA (camera));
   g_signal_connect (area, "resize", G_CALLBACK (resize_area), camera);
   g_signal_connect (area, "render", G_CALLBACK (render_area), NULL);
+  g_signal_connect (area, "realize", G_CALLBACK (realize_area), NULL);
   gtk_widget_grab_focus (area);
   gtk_widget_set_hexpand (area, TRUE);
   gtk_widget_set_vexpand (area, TRUE);
