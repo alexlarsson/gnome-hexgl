@@ -27,6 +27,25 @@ GtkWidget *start_button;
 HUD *hud;
 Gameplay *gameplay;
 
+static gboolean
+_enable_shadow_cb (GthreeObject *object,
+                   gpointer      user_data)
+{
+  if (GTHREE_IS_MESH (object))
+    {
+      gthree_object_set_cast_shadow (GTHREE_OBJECT (object), TRUE);
+      gthree_object_set_receive_shadow (GTHREE_OBJECT (object), TRUE);
+    }
+
+  return TRUE;
+}
+
+static void
+enable_shadows (GthreeObject *root)
+{
+  gthree_object_traverse (root, _enable_shadow_cb, NULL);
+}
+
 static void
 resize_area (GthreeArea *area,
              gint width,
@@ -52,12 +71,17 @@ init_scene (GthreeScene *scene)
   GthreeDirectionalLight *sun;
   graphene_vec3_t white, grey;
   graphene_point3d_t pos;
+  GthreeLightShadow *shadow;
+  GthreeCamera *shadow_camera;
 
   graphene_vec3_init (&white, 1, 1, 1);
   graphene_vec3_init (&grey, 0.75, 0.75, 0.75);
 
   track = load_model ("tracks/cityscape/cityscape.glb");
   ship = load_model ("ships/feisar/feisar.glb");
+
+  enable_shadows (track);
+  enable_shadows (ship);
 
   skybox = load_skybox ("dawnclouds");
   gthree_scene_set_background_texture (scene, skybox);
@@ -75,6 +99,8 @@ init_scene (GthreeScene *scene)
                                                      -443*2));
 
   ambient_light = gthree_ambient_light_new (&grey);
+  gthree_light_set_intensity (GTHREE_LIGHT (ambient_light), 0.7);
+
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (ambient_light));
 
   sun = gthree_directional_light_new (&white, 1.5);
@@ -84,6 +110,22 @@ init_scene (GthreeScene *scene)
   gthree_object_look_at (GTHREE_OBJECT (sun),
                          graphene_point3d_init (&pos, 0, 0, 0));
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (sun));
+
+  /* Sun shadow */
+  gthree_object_set_cast_shadow (GTHREE_OBJECT (sun), TRUE);
+
+  shadow = gthree_light_get_shadow (GTHREE_LIGHT (sun));
+  shadow_camera = gthree_light_shadow_get_camera (shadow);
+  gthree_orthographic_camera_set_left (GTHREE_ORTHOGRAPHIC_CAMERA (shadow_camera), -3000);
+  gthree_orthographic_camera_set_right (GTHREE_ORTHOGRAPHIC_CAMERA (shadow_camera), 3000);
+  gthree_orthographic_camera_set_top (GTHREE_ORTHOGRAPHIC_CAMERA (shadow_camera), 3000);
+  gthree_orthographic_camera_set_bottom (GTHREE_ORTHOGRAPHIC_CAMERA (shadow_camera), -3000);
+  gthree_camera_set_near (shadow_camera, 50);
+  gthree_camera_set_far (shadow_camera, 6000 * 2);
+  gthree_light_shadow_set_bias (shadow, -0.002);
+  gthree_light_shadow_set_map_size (shadow, 2048, 2048);
+
+
 }
 
 static gboolean
@@ -169,7 +211,6 @@ disable_vertex_colors (GthreeObject *top,
     }
 }
 
-
 static gboolean
 render_area (GtkGLArea    *gl_area,
              GdkGLContext *context)
@@ -189,6 +230,8 @@ render_area (GtkGLArea    *gl_area,
     g_autoptr(GthreeMeshBasicMaterial) track_material = NULL;
     cairo_surface_t *surface;
     graphene_vec3_t white, black, red;
+
+    gthree_renderer_set_shadow_map_enabled (renderer, TRUE);
 
     graphene_vec3_init (&white, 1, 1, 1);
     graphene_vec3_init (&black, 0, 0, 0);
