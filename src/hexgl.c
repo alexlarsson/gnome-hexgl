@@ -241,6 +241,8 @@ render_area (GtkGLArea    *gl_area,
     graphene_vec3_t white, black, red;
 
     gthree_renderer_set_shadow_map_enabled (renderer, TRUE);
+    gthree_renderer_set_shadow_map_auto_update (renderer, FALSE);
+    gthree_renderer_set_shadow_map_needs_update (renderer, TRUE);
 
     graphene_vec3_init (&white, 1, 1, 1);
     graphene_vec3_init (&black, 0, 0, 0);
