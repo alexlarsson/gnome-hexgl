@@ -1,0 +1,4 @@
+[wrap-git]
+directory = gthree
+url = https://github.com/alexlarsson/gthree
+revision = head
