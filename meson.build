@@ -46,3 +46,5 @@ install_subdir('textures', install_dir: join_paths(datadir , 'gnome-hexgl'))
 install_subdir('sounds', install_dir: join_paths(datadir , 'gnome-hexgl'))
 
 executable('gnome-hexgl', sources, dependencies: [gthree_dep, gsound_dep, libm], install: true)
+
+configure_file(input: 'wrapper.sh.in', output: 'wrapper.sh', configuration: { 'srcdir': meson.current_source_dir()} )

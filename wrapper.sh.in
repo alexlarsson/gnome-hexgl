@@ -1,0 +1,3 @@
+#!/bin/sh
+export GNOME_HEXGL_DATADIR=@srcdir@
+./gnome-hexgl
