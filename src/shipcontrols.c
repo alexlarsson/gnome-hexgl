@@ -275,11 +275,18 @@ ship_controls_reset (ShipControls *controls,
   controls->check_point = -1;
   controls->roll = 0.0;
   controls->drift = 0.0;
+  controls->angular = 0.0;
   controls->speed = 0.0;
   controls->speedRatio = 0.0;
   controls->boost = 0.0;
   controls->shield = controls->maxShield;
   controls->destroyed = FALSE;
+  controls->falling = FALSE;
+  controls->gradient = 0.0;
+  controls->gradientTarget = 0.0;
+  controls->tilt = 0.0;
+  controls->tiltTarget = 0.0;
+  graphene_point3d_init (&controls->repulsionForce, 0, 0, 0);
 
   gthree_object_set_position (controls->dummy,
                               position);
