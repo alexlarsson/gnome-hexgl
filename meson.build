@@ -7,8 +7,9 @@ project('gnome-hexgl', 'c',
         ],
         meson_version : '>= 0.48.0')
 
-gthree = dependency('gthree-1.0')
-gsound = dependency('gsound')
+gthree_dep = dependency('gthree-1.0', version: '>= 0.2.0',
+                        fallback: ['gthree', 'libgthree_dep'])
+gsound_dep = dependency('gsound')
 
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
@@ -44,4 +45,4 @@ install_subdir('models', install_dir: join_paths(datadir , 'gnome-hexgl'), exclu
 install_subdir('textures', install_dir: join_paths(datadir , 'gnome-hexgl'))
 install_subdir('sounds', install_dir: join_paths(datadir , 'gnome-hexgl'))
 
-executable('gnome-hexgl', sources, dependencies: [gthree, gsound, libm], install: true)
+executable('gnome-hexgl', sources, dependencies: [gthree_dep, gsound_dep, libm], install: true)
