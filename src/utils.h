@@ -1,5 +1,5 @@
 #include <gthree/gthree.h>
-
+#include <gtk/gtk.h>
 
 char *get_sound_path (const char *name);
 GdkPixbuf *load_pixbuf (const char *name);

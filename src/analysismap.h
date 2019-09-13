@@ -1,6 +1,7 @@
 #ifndef ANALYSISMAP_H
 #define ANALYSISMAP_H
 
+#include <gtk/gtk.h>
 #include <gthree/gthree.h>
 
 typedef struct _AnalysisMap AnalysisMap;

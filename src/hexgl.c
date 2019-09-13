@@ -3,6 +3,7 @@
 
 #include <epoxy/gl.h>
 #include <gthree/gthree.h>
+#include <gthree/gthreearea.h>
 #include "camerachase.h"
 #include "shipcontrols.h"
 #include "shipeffects.h"

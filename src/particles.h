@@ -1,4 +1,5 @@
 #include <gthree/gthree.h>
+#include <gtk/gtk.h>
 
 typedef struct _Particles Particles;
 

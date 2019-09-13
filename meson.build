@@ -7,7 +7,7 @@ project('gnome-hexgl', 'c',
         ],
         meson_version : '>= 0.48.0')
 
-gthree_dep = dependency('gthree-1.0', version: '>= 0.2.0',
+gthree_dep = dependency('gthree-gtk3-1.0', version: '>= 0.2.0',
                         fallback: ['gthree', 'libgthree_dep'])
 gsound_dep = dependency('gsound')
 

@@ -1,4 +1,5 @@
 #include "shipcontrols.h"
+#include <gtk/gtk.h>
 #include "sounds.h"
 
 #define RAD_TO_DEG(x)          ((x) * (180.f / GRAPHENE_PI))
