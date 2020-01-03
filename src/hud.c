@@ -33,7 +33,7 @@ cairo_texture_begin_paint (GthreeTexture *texture)
 static void
 cairo_texture_end_paint (GthreeTexture *texture)
 {
-  gthree_texture_set_needs_update (texture, TRUE);
+  gthree_texture_set_needs_update (texture);
 }
 
 typedef struct {

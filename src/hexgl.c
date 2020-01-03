@@ -289,7 +289,7 @@ realize_area (GtkWidget *widget)
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                         gthree_render_target_get_width (render_target),
                                         gthree_render_target_get_height (render_target));
-  gthree_render_target_download (render_target,
+  gthree_render_target_download (render_target, renderer,
                                  cairo_image_surface_get_data (surface),
                                  cairo_image_surface_get_stride (surface));
   //cairo_surface_write_to_png (surface, "analysis-height.png");
@@ -320,7 +320,7 @@ realize_area (GtkWidget *widget)
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                         gthree_render_target_get_width (render_target),
                                         gthree_render_target_get_height (render_target));
-  gthree_render_target_download (render_target,
+  gthree_render_target_download (render_target, renderer,
                                  cairo_image_surface_get_data (surface),
                                  cairo_image_surface_get_stride (surface));
   //cairo_surface_write_to_png (surface, "analysis-collision.png");
