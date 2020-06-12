@@ -5,7 +5,7 @@ project('gnome-hexgl', 'c',
           'warning_level=1',
           'c_std=gnu99',
         ],
-        meson_version : '>= 0.48.0')
+        meson_version : '>= 0.49.0')
 
 gthree_dep = dependency('gthree-gtk3-1.0', version: '>= 0.2.0',
                         fallback: ['gthree', 'libgthree_dep'])
