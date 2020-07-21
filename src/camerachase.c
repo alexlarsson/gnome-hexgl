@@ -64,7 +64,6 @@ camera_chase_update (CameraChase *chase,
     {
       const graphene_matrix_t *m;
       graphene_vec3_t dir, dir2, up, up2, target, lookat;
-      graphene_point3d_t pos;
 
       graphene_vec3_init (&dir, 0, 0, 1);
       graphene_vec3_init (&up, 0, 1, 0);
@@ -80,25 +79,19 @@ camera_chase_update (CameraChase *chase,
       graphene_vec3_scale (&up, chase->y_offset, &up2);
       graphene_vec3_add (&target, &up2, &target);
 
-      gthree_object_set_position_point3d (GTHREE_OBJECT (chase->camera),
-                                  graphene_point3d_init (&pos,
-                                                         graphene_vec3_get_x (&target),
-                                                         graphene_vec3_get_y (&target) - graphene_vec3_get_y (&up2) + chase->y_offset,
-                                                         graphene_vec3_get_z (&target)));
+      gthree_object_set_position_xyz (GTHREE_OBJECT (chase->camera),
+                                      graphene_vec3_get_x (&target),
+                                      graphene_vec3_get_y (&target) - graphene_vec3_get_y (&up2) + chase->y_offset,
+                                      graphene_vec3_get_z (&target));
 
       graphene_vec3_scale (&dir, chase->view_offset, &dir2);
       graphene_vec3_add (gthree_object_get_position (chase->target), &dir2, &lookat);
 
-      gthree_object_look_at (GTHREE_OBJECT (chase->camera),
-                             graphene_point3d_init (&pos,
-                                                    graphene_vec3_get_x (&lookat),
-                                                    graphene_vec3_get_y (&lookat),
-                                                    graphene_vec3_get_z (&lookat)));
+      gthree_object_look_at (GTHREE_OBJECT (chase->camera), &lookat);
     }
   else if (chase->mode == MODE_ORBIT)
     {
       graphene_vec3_t dir, target;
-      graphene_point3d_t pos;
 
       chase->time += dt;
 
@@ -109,14 +102,9 @@ camera_chase_update (CameraChase *chase,
                                              cosf (chase->time * .008) * chase->orbit_offset),
                          &target);
 
-      gthree_object_set_position_point3d (GTHREE_OBJECT (chase->camera),
-                                  graphene_point3d_init (&pos,
-                                                         graphene_vec3_get_x (&target),
-                                                         graphene_vec3_get_y (&target),
-                                                         graphene_vec3_get_z (&target)));
+      gthree_object_set_position (GTHREE_OBJECT (chase->camera), &target);
 
-      gthree_object_look_at (GTHREE_OBJECT (chase->camera),
-                             graphene_point3d_init_from_vec3 (&pos, gthree_object_get_position (chase->target)));
+      gthree_object_look_at (GTHREE_OBJECT (chase->camera), gthree_object_get_position (chase->target));
     }
 }
 

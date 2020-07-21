@@ -108,8 +108,7 @@ init_scene (GthreeScene *scene)
   gthree_object_set_position_point3d (GTHREE_OBJECT (sun),
                               graphene_point3d_init (&pos,
                                                      -4000, 1200, 1800));
-  gthree_object_look_at (GTHREE_OBJECT (sun),
-                         graphene_point3d_init (&pos, 0, 0, 0));
+  gthree_object_look_at_xyz (GTHREE_OBJECT (sun), 0, 0, 0);
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (sun));
 
   /* Sun shadow */
