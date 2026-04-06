@@ -220,6 +220,39 @@ disable_vertex_colors (GthreeObject *top,
     }
 }
 
+static gboolean
+set_emissive_blue_cb (GthreeObject *object,
+                      gpointer      user_data)
+{
+  if (GTHREE_IS_MESH (object))
+    {
+      GthreeMaterial *material = gthree_mesh_get_material (GTHREE_MESH (object), 0);
+      if (GTHREE_IS_MESH_STANDARD_MATERIAL (material))
+        {
+          graphene_vec3_t blue;
+          graphene_vec3_init (&blue, 0.0, 0.4, 1.0);
+          gthree_mesh_standard_material_set_emissive_color (GTHREE_MESH_STANDARD_MATERIAL (material), &blue);
+          gthree_mesh_standard_material_set_emissive_intensity (GTHREE_MESH_STANDARD_MATERIAL (material), 2.0);
+        }
+    }
+  return TRUE;
+}
+
+static void
+set_emissive_blue (GthreeObject *top,
+                   const char *name)
+{
+  g_autoptr(GList) objects = NULL;
+  GList *l;
+
+  objects = gthree_object_find_by_name (top, name);
+  for (l = objects; l != NULL; l = l->next)
+    {
+      GthreeObject *obj = l->data;
+      gthree_object_traverse (GTHREE_OBJECT (obj), set_emissive_blue_cb, NULL);
+    }
+}
+
 static void
 realize_area (GtkWidget *widget)
 {
@@ -281,6 +314,7 @@ realize_area (GtkWidget *widget)
   // Don't use vertex colors for the tracks object, as its used for collision info
   disable_vertex_colors (GTHREE_OBJECT (scene), "tracks");
   add_name_to_layer (GTHREE_OBJECT (scene), "bonus-base", 3);
+  set_emissive_blue (GTHREE_OBJECT (scene), "bonus-speed");
 
   gthree_object_set_layer (GTHREE_OBJECT (o_camera), 2);
   gthree_renderer_render (renderer, scene, GTHREE_CAMERA (o_camera));
