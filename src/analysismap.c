@@ -80,10 +80,10 @@ static float
 decode_depth (GdkRGBA *color)
 {
   return
-    color->alpha  * (255.0 / 256.0) +
-    color->red * (255.0 / 256.0)  / (256.0 * 256.0 * 256.0) +
-    color->green  * (255.0 / 256.0)  / (256.0 * 256.0) +
-    color->blue  * (255.0 / 256.0)  / (256.0);
+    color->red    * (255.0 / 256.0) +
+    color->green  * (255.0 / 256.0) / 256.0 +
+    color->blue   * (255.0 / 256.0) / (256.0 * 256.0) +
+    color->alpha  / (256.0 * 256.0 * 256.0);
 }
 
 static float
