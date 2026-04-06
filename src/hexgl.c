@@ -100,11 +100,11 @@ init_scene (GthreeScene *scene)
                                                      -443*2));
 
   ambient_light = gthree_ambient_light_new (&grey);
-  gthree_light_set_intensity (GTHREE_LIGHT (ambient_light), 0.7);
+  gthree_light_set_intensity (GTHREE_LIGHT (ambient_light), 3);
 
   gthree_object_add_child (GTHREE_OBJECT (scene), GTHREE_OBJECT (ambient_light));
 
-  sun = gthree_directional_light_new (&white, 1.5);
+  sun = gthree_directional_light_new (&white, 4.0);
   gthree_object_set_position_point3d (GTHREE_OBJECT (sun),
                               graphene_point3d_init (&pos,
                                                      -4000, 1200, 1800));
